@@ -807,8 +807,8 @@ export default function Home() {
                 style={{
                   flex: 1,
                   display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  flexDirection: "column",
+                  alignItems: "stretch",
                   position: "relative",
                   touchAction: "pan-y",
                   minHeight: 0,
@@ -838,11 +838,10 @@ export default function Home() {
                     className="glass-panel"
                     style={{
                       width: "100%",
-                      height: "100%",
+                      flex: "1 1 0",
+                      minHeight: 0,
                       padding: 0,
                       display: "block",
-                      minHeight: "min(290px, 100%)",
-                      maxHeight: "min(560px, 100%)",
                       border: showAnswer ? "1px solid rgba(99, 102, 241, 0.4)" : "1px solid rgba(255, 255, 255, 0.1)",
                       cursor: "grab",
                       perspective: "1200px",
