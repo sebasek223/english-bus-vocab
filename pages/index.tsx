@@ -106,6 +106,7 @@ export default function Home() {
   const [isFlyingOut, setIsFlyingOut] = useState<"left" | "right" | null>(null);
   const touchStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const swipeDirectionRef = useRef<"undecided" | "horizontal" | "vertical">("undecided");
+  const canFlipFromPointerRef = useRef(false);
   const holdTimerRef = useRef<number | null>(null);
   const holdTriggeredRef = useRef(false);
 
@@ -430,12 +431,14 @@ export default function Home() {
   const handleTouchStart = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!currentWord || isFlyingOut) return;
     if (e.pointerType === "mouse" && e.button !== 0) return;
+    const flipTarget = e.currentTarget.querySelector("[data-card-flip-target]");
+    canFlipFromPointerRef.current = Boolean(flipTarget?.contains(e.target as Node));
     touchStartRef.current = { x: e.clientX, y: e.clientY };
     swipeDirectionRef.current = "undecided";
     holdTriggeredRef.current = false;
     setIsDragging(true);
 
-    if (flipMode === "hold") {
+    if (flipMode === "hold" && canFlipFromPointerRef.current) {
       holdTimerRef.current = window.setTimeout(() => {
         if (swipeDirectionRef.current !== "undecided") return;
         holdTriggeredRef.current = true;
@@ -476,6 +479,8 @@ export default function Home() {
       window.clearTimeout(holdTimerRef.current);
       holdTimerRef.current = null;
     }
+    const canFlip = canFlipFromPointerRef.current;
+    canFlipFromPointerRef.current = false;
     if (holdTriggeredRef.current) {
       holdTriggeredRef.current = false;
       setIsDragging(false);
@@ -489,7 +494,7 @@ export default function Home() {
       handleKnown();
     } else if (dragOffset.x < -threshold) {
       handleRepeat();
-    } else if (flipMode === "tap" && Math.abs(dragOffset.x) < 8 && Math.abs(dragOffset.y) < 8) {
+    } else if (canFlip && flipMode === "tap" && Math.abs(dragOffset.x) < 8 && Math.abs(dragOffset.y) < 8) {
       setShowAnswer((prev) => !prev);
     } else {
       setDragOffset({ x: 0, y: 0 });
@@ -502,6 +507,7 @@ export default function Home() {
       holdTimerRef.current = null;
     }
     holdTriggeredRef.current = false;
+    canFlipFromPointerRef.current = false;
     setIsDragging(false);
     setDragOffset({ x: 0, y: 0 });
   };
@@ -877,6 +883,7 @@ export default function Home() {
 
                     {/* Answer Reveal Box (Czech + Collocations + 2 Context Examples) */}
                     <div
+                      data-card-flip-target=""
                       style={{
                         background: showAnswer ? "rgba(99, 102, 241, 0.12)" : "rgba(255, 255, 255, 0.03)",
                         border: showAnswer ? "1px solid rgba(99, 102, 241, 0.3)" : "1px dashed rgba(255, 255, 255, 0.12)",
@@ -885,6 +892,7 @@ export default function Home() {
                         maxHeight: "min(320px, 40dvh)",
                         overflowY: "auto",
                         overscrollBehavior: "contain",
+                        cursor: "pointer",
                       }}
                       className="no-scrollbar"
                     >
