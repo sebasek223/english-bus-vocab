@@ -8,6 +8,8 @@ import {
   getNextDirection,
   getPracticeMode,
   isCorrectAnswer,
+  migrateDailyActivityLog,
+  type DailyActivityLog,
   type PracticeMode,
   type ReviewDirection,
 } from "../lib/learning";
@@ -90,7 +92,7 @@ export default function Home() {
   const [streak, setStreak] = useState(1);
   const [srsRecords, setSrsRecords] = useState<SRSRecord[]>([]);
   const [weeklyHistory, setWeeklyHistory] = useState<{ [dateKey: string]: number }>({});
-  const [activityLog, setActivityLog] = useState<Record<string, number>>({});
+  const [activityLog, setActivityLog] = useState<DailyActivityLog>({});
   const [typedAnswer, setTypedAnswer] = useState("");
   const [typingFeedback, setTypingFeedback] = useState<"correct" | "incorrect" | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -163,13 +165,12 @@ export default function Home() {
       setSrsRecords(savedSRS);
       setWeeklyHistory(savedHistory);
       const savedActivity = localStorage.getItem("vocab_review_activity_v1");
-      const activityHistory: Record<string, number> = savedActivity
-        ? JSON.parse(savedActivity)
-        : savedHistory;
+      const activityHistory = migrateDailyActivityLog(
+        savedActivity ? JSON.parse(savedActivity) : savedHistory,
+        savedTarget
+      );
       setActivityLog(activityHistory);
-      if (!savedActivity) {
-        localStorage.setItem("vocab_review_activity_v1", JSON.stringify(activityHistory));
-      }
+      localStorage.setItem("vocab_review_activity_v1", JSON.stringify(activityHistory));
 
       if (savedDate === today) {
         const todayCount = parseInt(localStorage.getItem("vocab_learned_today") || "0", 10);
@@ -298,10 +299,11 @@ export default function Home() {
     const neededNewCount = Math.max(3, 6 - dueVocabWords.length);
     const excludeList = currentSRS.map((r) => r.text);
     const prepareQueue = (queue: VocabWord[]) => {
-      const savedActivity: Record<string, number> = JSON.parse(
-        localStorage.getItem("vocab_review_activity_v1") || "{}"
+      const savedActivity = migrateDailyActivityLog(
+        JSON.parse(localStorage.getItem("vocab_review_activity_v1") || "{}"),
+        Number(localStorage.getItem("vocab_target") || dailyTarget)
       );
-      const previousReviews = Object.values(savedActivity).reduce((total, count) => total + count, 0);
+      const previousReviews = Object.values(savedActivity).reduce((total, activity) => total + activity.reviewed, 0);
       return queue.map((word, index) => ({
         ...word,
         direction: word.direction || "en-to-cz",
@@ -343,10 +345,15 @@ export default function Home() {
 
   const recordReviewActivity = () => {
     const today = new Date().toISOString().split("T")[0];
-    const savedLog: Record<string, number> = JSON.parse(
-      localStorage.getItem("vocab_review_activity_v1") || "{}"
+    const savedLog = migrateDailyActivityLog(
+      JSON.parse(localStorage.getItem("vocab_review_activity_v1") || "{}"),
+      dailyTarget
     );
-    const updatedLog = { ...savedLog, [today]: (savedLog[today] || 0) + 1 };
+    const todayActivity = savedLog[today] || { reviewed: 0, goal: Math.max(1, dailyTarget) };
+    const updatedLog = {
+      ...savedLog,
+      [today]: { ...todayActivity, reviewed: todayActivity.reviewed + 1 },
+    };
     localStorage.setItem("vocab_review_activity_v1", JSON.stringify(updatedLog));
     setActivityLog(updatedLog);
   };
@@ -620,16 +627,16 @@ export default function Home() {
       const monthStr = (month + 1 < 10 ? "0" : "") + (month + 1);
       const dayStr = (d < 10 ? "0" : "") + d;
       const dateKey = `${year}-${monthStr}-${dayStr}`;
-      const reviewCount = activityLog[dateKey] || 0;
+      const activity = activityLog[dateKey] || { reviewed: 0, goal: dailyTarget };
       const isToday = d === todayNum;
-      const activityLevel = getActivityLevel(reviewCount);
+      const activityLevel = getActivityLevel(activity.reviewed, activity.goal);
 
       cells.push(
         <div
           key={dateKey}
-          aria-label={`${dateKey}: ${reviewCount} kartiček`}
+          aria-label={`${dateKey}: ${activity.reviewed} z ${activity.goal} kartiček`}
           className={`cal-day activity-${activityLevel} ${isToday ? "today" : ""}`}
-          title={`${reviewCount} ${reviewCount === 1 ? "kartička" : "kartiček"}`}
+          title={`${activity.reviewed} / ${activity.goal} kartiček`}
         >
           <span>{d}</span>
         </div>
@@ -651,7 +658,7 @@ export default function Home() {
   const shortTermCount = srsRecords.filter((r) => r.stage >= 1 && r.stage <= 2).length;
   const mediumTermCount = srsRecords.filter((r) => r.stage >= 3 && r.stage <= 4).length;
   const masteredCount = srsRecords.filter((r) => r.stage >= 5).length;
-  const activityDaysCount = Object.values(activityLog).filter((count) => count > 0).length;
+  const activityDaysCount = Object.values(activityLog).filter((activity) => activity.reviewed > 0).length;
 
   const activeWordRecord = currentWord
     ? srsRecords.find((r) => r.text.toLowerCase() === currentWord.text.toLowerCase())
@@ -1244,14 +1251,14 @@ export default function Home() {
                 <div className="calendar-grid">
                   {renderCalendar()}
                 </div>
-                <div className="heatmap-legend" aria-label="Intenzita aktivity: méně až více">
-                  <span>Méně</span>
+                <div className="heatmap-legend" aria-label="Plnění denního cíle: méně než 25 %, 25 až 49 %, 50 až 99 %, 100 % nebo více">
+                  <span>0 %</span>
                   <span className="heatmap-swatch activity-0" />
                   <span className="heatmap-swatch activity-1" />
                   <span className="heatmap-swatch activity-2" />
                   <span className="heatmap-swatch activity-3" />
                   <span className="heatmap-swatch activity-4" />
-                  <span>Více</span>
+                  <span>100 % +</span>
                 </div>
               </div>
             </div>
