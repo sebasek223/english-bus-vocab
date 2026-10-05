@@ -4,24 +4,18 @@
       <stop offset="0%" stop-color="#4f46e5" />
       <stop offset="100%" stop-color="#0f172a" />
     </linearGradient>
-    <linearGradient id="bus" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="card" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#38bdf8" />
-      <stop offset="100%" stop-color="#6366f1" />
+      <stop offset="100%" stop-color="#2563eb" />
     </linearGradient>
   </defs>
   <rect width="512" height="512" rx="120" fill="url(#bg)" />
-  <g transform="translate(96, 96) scale(0.625)">
-    <!-- Bus Outline -->
-    <rect x="64" y="64" width="384" height="360" rx="60" fill="url(#bus)" />
-    <!-- Windshield -->
-    <rect x="96" y="96" width="320" height="130" rx="20" fill="#ffffff" opacity="0.95" />
-    <!-- Text on windshield -->
-    <text x="256" y="180" font-family="-apple-system, sans-serif" font-size="64" font-weight="900" fill="#4f46e5" text-anchor="middle">VOCAB</text>
-    <!-- Headlights -->
-    <circle cx="128" cy="340" r="28" fill="#fbbf24" />
-    <circle cx="384" cy="340" r="28" fill="#fbbf24" />
-    <!-- Grill Lines -->
-    <line x1="200" y1="330" x2="312" y2="330" stroke="#ffffff" stroke-width="12" stroke-linecap="round" />
-    <line x1="210" y1="360" x2="302" y2="360" stroke="#ffffff" stroke-width="12" stroke-linecap="round" />
+  <g transform="rotate(-8 256 256)">
+    <rect x="104" y="92" width="304" height="352" rx="36" fill="#ffffff" opacity="0.28" />
+    <rect x="88" y="76" width="304" height="352" rx="36" fill="url(#card)" />
+    <rect x="112" y="100" width="256" height="304" rx="24" fill="#f8fafc" />
+    <text x="240" y="270" font-family="sans-serif" font-size="156" font-weight="800" fill="#1e3a8a" text-anchor="middle">A</text>
+    <line x1="160" y1="312" x2="320" y2="312" stroke="#94a3b8" stroke-width="14" stroke-linecap="round" />
+    <line x1="184" y1="350" x2="296" y2="350" stroke="#cbd5e1" stroke-width="12" stroke-linecap="round" />
   </g>
 </svg>

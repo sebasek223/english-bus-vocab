@@ -495,7 +495,7 @@ export default function Home() {
     } else if (dragOffset.x < -threshold) {
       handleRepeat();
     } else if (canFlip && flipMode === "tap" && Math.abs(dragOffset.x) < 8 && Math.abs(dragOffset.y) < 8) {
-      setShowAnswer((prev) => !prev);
+      setShowAnswer((previous) => !previous);
     } else {
       setDragOffset({ x: 0, y: 0 });
     }
@@ -508,6 +508,7 @@ export default function Home() {
     }
     holdTriggeredRef.current = false;
     canFlipFromPointerRef.current = false;
+    swipeDirectionRef.current = "vertical";
     setIsDragging(false);
     setDragOffset({ x: 0, y: 0 });
   };
@@ -626,6 +627,7 @@ export default function Home() {
         <title>BusVocab AI – English Flashcards</title>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover" />
         <link rel="manifest" href="/manifest.json" />
+        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
         <meta name="theme-color" content={theme === "light" ? "#f4f7fb" : "#090d16"} />
 
         {/* PWA Standalone Fullscreen Meta Tags */}
@@ -884,6 +886,16 @@ export default function Home() {
                     {/* Answer Reveal Box (Czech + Collocations + 2 Context Examples) */}
                     <div
                       data-card-flip-target=""
+                      role="button"
+                      tabIndex={0}
+                      aria-label={showAnswer ? "Skrýt překlad" : "Odhalit překlad"}
+                      aria-expanded={showAnswer}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setShowAnswer((previous) => !previous);
+                        }
+                      }}
                       style={{
                         background: showAnswer ? "rgba(99, 102, 241, 0.12)" : "rgba(255, 255, 255, 0.03)",
                         border: showAnswer ? "1px solid rgba(99, 102, 241, 0.3)" : "1px dashed rgba(255, 255, 255, 0.12)",
