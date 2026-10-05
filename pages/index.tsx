@@ -1,5 +1,5 @@
 // pages/index.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Head from "next/head";
 import { VocabWord } from "./api/generateWords";
 
@@ -25,6 +25,12 @@ export default function Home() {
   const [weeklyHistory, setWeeklyHistory] = useState<{ [dateKey: string]: number }>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+
+  // Touch / Drag Swipe state
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [isFlyingOut, setIsFlyingOut] = useState<"left" | "right" | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // Load persistence
   useEffect(() => {
@@ -75,6 +81,8 @@ export default function Home() {
   const fetchWords = async () => {
     setIsLoading(true);
     setShowAnswer(false);
+    setDragOffset({ x: 0, y: 0 });
+    setIsFlyingOut(null);
     try {
       const exclude = knownWords.map((w) => w.text);
       const res = await fetch("/api/generateWords", {
@@ -108,46 +116,92 @@ export default function Home() {
   };
 
   const handleKnown = () => {
-    if (!currentWord) return;
-    const today = new Date().toISOString().split("T")[0];
-    const newLearned = learnedToday + 1;
-    setLearnedToday(newLearned);
-    localStorage.setItem("vocab_learned_today", newLearned.toString());
+    if (!currentWord || isFlyingOut) return;
+    setIsFlyingOut("right");
+    setTimeout(() => {
+      const today = new Date().toISOString().split("T")[0];
+      const newLearned = learnedToday + 1;
+      setLearnedToday(newLearned);
+      localStorage.setItem("vocab_learned_today", newLearned.toString());
 
-    // Update daily history for charts
-    const updatedHistory = { ...weeklyHistory, [today]: newLearned };
-    setWeeklyHistory(updatedHistory);
-    localStorage.setItem("vocab_daily_counts", JSON.stringify(updatedHistory));
+      const updatedHistory = { ...weeklyHistory, [today]: newLearned };
+      setWeeklyHistory(updatedHistory);
+      localStorage.setItem("vocab_daily_counts", JSON.stringify(updatedHistory));
 
-    // Add to known
-    const updatedKnown = [
-      ...knownWords.filter((w) => w.text !== currentWord.text),
-      { text: currentWord.text, czech: currentWord.czechTranslation, level: currentWord.level },
-    ];
-    setKnownWords(updatedKnown);
-    localStorage.setItem("vocab_known_words_v2", JSON.stringify(updatedKnown));
+      const updatedKnown = [
+        ...knownWords.filter((w) => w.text !== currentWord.text),
+        { text: currentWord.text, czech: currentWord.czechTranslation, level: currentWord.level },
+      ];
+      setKnownWords(updatedKnown);
+      localStorage.setItem("vocab_known_words_v2", JSON.stringify(updatedKnown));
 
-    if (newLearned >= dailyTarget && learnedToday < dailyTarget) {
-      const newStreak = streak + 1;
-      setStreak(newStreak);
-      localStorage.setItem("vocab_streak", newStreak.toString());
-    }
+      if (newLearned >= dailyTarget && learnedToday < dailyTarget) {
+        const newStreak = streak + 1;
+        setStreak(newStreak);
+        localStorage.setItem("vocab_streak", newStreak.toString());
+      }
 
-    nextCard();
+      nextCard();
+    }, 220);
   };
 
   const handleRepeat = () => {
-    if (!currentWord) return;
-    setWords((prev) => [...prev.filter((_, i) => i !== currentIndex), currentWord]);
-    setShowAnswer(false);
+    if (!currentWord || isFlyingOut) return;
+    setIsFlyingOut("left");
+    setTimeout(() => {
+      setWords((prev) => [...prev.filter((_, i) => i !== currentIndex), currentWord]);
+      nextCard(false);
+    }, 220);
   };
 
-  const nextCard = () => {
+  const nextCard = (advance = true) => {
     setShowAnswer(false);
-    if (currentIndex + 1 < words.length) {
-      setCurrentIndex((i) => i + 1);
+    setDragOffset({ x: 0, y: 0 });
+    setIsFlyingOut(null);
+    if (advance) {
+      if (currentIndex + 1 < words.length) {
+        setCurrentIndex((i) => i + 1);
+      } else {
+        fetchWords();
+      }
+    }
+  };
+
+  // Touch / Drag Gesture Handlers
+  const handleTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
+    if (!currentWord || isFlyingOut) return;
+    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+    touchStartRef.current = { x: clientX, y: clientY };
+    setIsDragging(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent | React.MouseEvent) => {
+    if (!isDragging || !currentWord) return;
+    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+    const deltaX = clientX - touchStartRef.current.x;
+    const deltaY = clientY - touchStartRef.current.y;
+    setDragOffset({ x: deltaX, y: deltaY });
+  };
+
+  const handleTouchEnd = () => {
+    if (!isDragging || !currentWord) return;
+    setIsDragging(false);
+
+    const threshold = 75; // Swipe sensitivity threshold
+    if (dragOffset.x > threshold) {
+      // Swiped Right -> Known
+      handleKnown();
+    } else if (dragOffset.x < -threshold) {
+      // Swiped Left -> Repeat
+      handleRepeat();
+    } else if (Math.abs(dragOffset.x) < 8 && Math.abs(dragOffset.y) < 8) {
+      // Tap without drag -> Flip / Reveal
+      setShowAnswer((prev) => !prev);
     } else {
-      fetchWords();
+      // Snap back
+      setDragOffset({ x: 0, y: 0 });
     }
   };
 
@@ -219,6 +273,25 @@ export default function Home() {
   const maxBarCount = Math.max(dailyTarget, ...chartDays.map((d) => d.count), 1);
   const userRank = getRank(knownWords.length);
 
+  // Compute card transform while dragging or flying out
+  let cardTransform = "translate3d(0,0,0) rotate(0deg)";
+  let cardTransition = isDragging ? "none" : "transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease";
+  let cardOpacity = 1;
+
+  if (isFlyingOut === "right") {
+    cardTransform = "translate3d(500px, 0, 0) rotate(25deg)";
+    cardOpacity = 0;
+  } else if (isFlyingOut === "left") {
+    cardTransform = "translate3d(-500px, 0, 0) rotate(-25deg)";
+    cardOpacity = 0;
+  } else if (isDragging || dragOffset.x !== 0) {
+    const rotation = (dragOffset.x / 20);
+    cardTransform = `translate3d(${dragOffset.x}px, ${dragOffset.y * 0.4}px, 0) rotate(${rotation}deg)`;
+  }
+
+  const isSwipingRight = dragOffset.x > 30;
+  const isSwipingLeft = dragOffset.x < -30;
+
   return (
     <>
       <Head>
@@ -265,42 +338,51 @@ export default function Home() {
         </header>
 
         {/* Main Single-Screen Content Area */}
-        <main style={{ flex: 1, padding: "16px", display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
-          {/* TAB 1: SLOVÍČKA (Single Flashcard View) */}
+        <main style={{ flex: 1, padding: "14px 16px", display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
+          {/* TAB 1: SLOVÍČKA (Swipe Flashcard View) */}
           {currentTab === "vocab" && (
             <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-              {/* Top Sub-Header: Context / Seasonal Topic indicator & Daily counter */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+              {/* Top Sub-Header */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
                 <div
                   style={{
                     background: "rgba(99, 102, 241, 0.12)",
                     border: "1px solid rgba(99, 102, 241, 0.25)",
-                    padding: "4px 10px",
+                    padding: "3px 9px",
                     borderRadius: "10px",
-                    fontSize: "0.75rem",
+                    fontSize: "0.74rem",
                     fontWeight: "700",
                     color: "#a5b4fc",
                     display: "flex",
                     alignItems: "center",
-                    gap: "5px",
+                    gap: "4px",
                   }}
                 >
                   <span>✨</span>
                   <span>{currentWord?.theme || "B2 & C1 Mix"}</span>
                 </div>
 
-                <div style={{ fontSize: "0.8rem", color: "#94a3b8", fontWeight: "600" }}>
+                <div style={{ fontSize: "0.78rem", color: "#94a3b8", fontWeight: "600" }}>
                   Dnes: <strong style={{ color: "#38bdf8" }}>{learnedToday}/{dailyTarget}</strong>
                 </div>
               </div>
 
-              {/* Centered Flashcard */}
-              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {/* Centered Flashcard with Swipe & Touch gestures */}
+              <div
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  position: "relative",
+                  touchAction: "pan-y",
+                }}
+              >
                 {isLoading ? (
                   <div style={{ textAlign: "center", padding: "20px" }}>
                     <div style={{ fontSize: "2rem", marginBottom: "8px" }}>🤖✨</div>
-                    <div style={{ fontWeight: "700", color: "#cbd5e1", fontSize: "0.95rem" }}>Připravuji aktuální slovíčka...</div>
-                    <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "4px" }}>Mix B2 & C1 podle sezóny a situace</div>
+                    <div style={{ fontWeight: "700", color: "#cbd5e1", fontSize: "0.95rem" }}>Generuji slovíčka & kolokace...</div>
+                    <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "4px" }}>Příprava kontextových příkladů</div>
                   </div>
                 ) : !currentWord ? (
                   <div className="glass-panel" style={{ padding: "24px", textAlign: "center", width: "100%" }}>
@@ -313,21 +395,73 @@ export default function Home() {
                   </div>
                 ) : (
                   <div
-                    onClick={() => setShowAnswer(!showAnswer)}
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                    onMouseDown={handleTouchStart}
+                    onMouseMove={handleTouchMove}
+                    onMouseUp={handleTouchEnd}
                     className="glass-panel"
                     style={{
                       width: "100%",
-                      padding: "22px 18px",
+                      padding: "18px 16px",
                       display: "flex",
                       flexDirection: "column",
                       justifyContent: "space-between",
-                      minHeight: "260px",
-                      maxHeight: "360px",
+                      minHeight: "290px",
+                      maxHeight: "390px",
                       border: showAnswer ? "1px solid rgba(99, 102, 241, 0.4)" : "1px solid rgba(255, 255, 255, 0.1)",
-                      cursor: "pointer",
-                      transition: "all 0.2s ease",
+                      cursor: "grab",
+                      transform: cardTransform,
+                      transition: cardTransition,
+                      opacity: cardOpacity,
+                      position: "relative",
+                      userSelect: "none",
+                      overflow: "hidden",
                     }}
                   >
+                    {/* Swipe Visual Cue Indicators */}
+                    {isSwipingRight && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "14px",
+                          left: "14px",
+                          background: "rgba(16, 185, 129, 0.9)",
+                          color: "white",
+                          fontWeight: "800",
+                          padding: "4px 10px",
+                          borderRadius: "8px",
+                          fontSize: "0.85rem",
+                          letterSpacing: "0.05em",
+                          boxShadow: "0 4px 12px rgba(16, 185, 129, 0.4)",
+                          zIndex: 10,
+                        }}
+                      >
+                        ✅ UMÍM
+                      </div>
+                    )}
+                    {isSwipingLeft && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "14px",
+                          right: "14px",
+                          background: "rgba(245, 158, 11, 0.9)",
+                          color: "white",
+                          fontWeight: "800",
+                          padding: "4px 10px",
+                          borderRadius: "8px",
+                          fontSize: "0.85rem",
+                          letterSpacing: "0.05em",
+                          boxShadow: "0 4px 12px rgba(245, 158, 11, 0.4)",
+                          zIndex: 10,
+                        }}
+                      >
+                        🔄 ZOPAKOVAT
+                      </div>
+                    )}
+
                     {/* Level & Audio */}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span
@@ -352,9 +486,9 @@ export default function Home() {
                           background: "rgba(255, 255, 255, 0.08)",
                           border: "none",
                           borderRadius: "50%",
-                          width: "36px",
-                          height: "36px",
-                          fontSize: "1.05rem",
+                          width: "34px",
+                          height: "34px",
+                          fontSize: "1rem",
                           cursor: "pointer",
                           color: isPlayingAudio ? "#818cf8" : "#ffffff",
                         }}
@@ -364,67 +498,115 @@ export default function Home() {
                     </div>
 
                     {/* Word & Phonetic */}
-                    <div style={{ textAlign: "center", margin: "10px 0" }}>
-                      <h2 style={{ fontSize: "1.9rem", fontWeight: "800", color: "#ffffff", letterSpacing: "-0.02em" }}>
+                    <div style={{ textAlign: "center", margin: "6px 0" }}>
+                      <h2 style={{ fontSize: "1.85rem", fontWeight: "800", color: "#ffffff", letterSpacing: "-0.02em" }}>
                         {currentWord.text}
                       </h2>
                       {currentWord.phonetic && (
-                        <div style={{ color: "#94a3b8", fontSize: "0.9rem", fontStyle: "italic", marginTop: "2px" }}>
+                        <div style={{ color: "#94a3b8", fontSize: "0.88rem", fontStyle: "italic", marginTop: "2px" }}>
                           {currentWord.phonetic}
                         </div>
                       )}
                     </div>
 
-                    {/* Answer Reveal Box */}
+                    {/* Answer Reveal Box (Czech + Collocations + 2 Context Examples) */}
                     <div
                       style={{
                         background: showAnswer ? "rgba(99, 102, 241, 0.12)" : "rgba(255, 255, 255, 0.03)",
                         border: showAnswer ? "1px solid rgba(99, 102, 241, 0.3)" : "1px dashed rgba(255, 255, 255, 0.12)",
-                        padding: "12px",
-                        borderRadius: "14px",
-                        textAlign: "center",
+                        padding: "10px 12px",
+                        borderRadius: "12px",
+                        maxHeight: "180px",
+                        overflowY: "auto",
                       }}
+                      className="no-scrollbar"
                     >
                       {showAnswer ? (
-                        <div>
-                          <div style={{ fontSize: "1.2rem", fontWeight: "800", color: "#f8fafc", marginBottom: "4px" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                          {/* Czech Translation */}
+                          <div style={{ fontSize: "1.15rem", fontWeight: "800", color: "#f8fafc" }}>
                             🇨🇿 {currentWord.czechTranslation}
                           </div>
-                          <div style={{ fontSize: "0.8rem", color: "#38bdf8", fontStyle: "italic", marginTop: "4px" }}>
-                            "{currentWord.example}"
+
+                          {/* Collocations / Typical word pairs */}
+                          {currentWord.collocations && currentWord.collocations.length > 0 && (
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "2px" }}>
+                              {currentWord.collocations.map((col, idx) => (
+                                <span
+                                  key={idx}
+                                  style={{
+                                    background: "rgba(255, 255, 255, 0.08)",
+                                    border: "1px solid rgba(255, 255, 255, 0.12)",
+                                    padding: "2px 7px",
+                                    borderRadius: "6px",
+                                    fontSize: "0.72rem",
+                                    color: "#a5b4fc",
+                                    fontWeight: "600",
+                                  }}
+                                >
+                                  🔗 {col}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* 2 Context Examples */}
+                          <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "4px" }}>
+                            {currentWord.examples && currentWord.examples.map((ex, idx) => (
+                              <div
+                                key={idx}
+                                style={{
+                                  background: "rgba(0, 0, 0, 0.25)",
+                                  padding: "6px 8px",
+                                  borderRadius: "8px",
+                                  fontSize: "0.75rem",
+                                  lineHeight: "1.35",
+                                }}
+                              >
+                                <div style={{ color: "#38bdf8", fontStyle: "italic" }}>"{ex.en}"</div>
+                                {ex.cz && <div style={{ color: "#94a3b8", marginTop: "2px" }}>"{ex.cz}"</div>}
+                              </div>
+                            ))}
                           </div>
                         </div>
                       ) : (
-                        <div style={{ fontSize: "0.82rem", color: "#64748b", fontWeight: "600" }}>
-                          👆 Klepnutím zobrazíš český překlad
+                        <div style={{ textAlign: "center", padding: "8px 0" }}>
+                          <div style={{ fontSize: "0.82rem", color: "#64748b", fontWeight: "600" }}>
+                            👆 Klepnutím otočíš kartu
+                          </div>
+                          <div style={{ fontSize: "0.7rem", color: "#475569", marginTop: "2px" }}>
+                            nebo potáhni: 👈 Zopakovat | Umím 👉
+                          </div>
                         </div>
                       )}
                     </div>
 
-                    <div style={{ textAlign: "center", fontSize: "0.72rem", color: "#475569", marginTop: "4px" }}>
-                      Karta {currentIndex + 1} z {words.length}
+                    <div style={{ textAlign: "center", fontSize: "0.7rem", color: "#475569", marginTop: "2px" }}>
+                      Karta {currentIndex + 1} z {words.length} • Swipe gesto povoleno
                     </div>
                   </div>
                 )}
               </div>
 
               {/* Bottom Card Action Buttons */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "12px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "10px" }}>
                 <button
                   disabled={!currentWord || isLoading}
                   onClick={handleRepeat}
                   className="btn-repeat"
-                  style={{ padding: "14px", fontSize: "0.9rem" }}
+                  style={{ padding: "13px", fontSize: "0.88rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
                 >
-                  🔄 Zopakovat
+                  <span>👈</span>
+                  <span>🔄 Zopakovat</span>
                 </button>
                 <button
                   disabled={!currentWord || isLoading}
                   onClick={handleKnown}
                   className="btn-know"
-                  style={{ padding: "14px", fontSize: "0.9rem" }}
+                  style={{ padding: "13px", fontSize: "0.88rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
                 >
-                  ✅ Umím to
+                  <span>✅ Umím to</span>
+                  <span>👉</span>
                 </button>
               </div>
             </div>
@@ -433,7 +615,6 @@ export default function Home() {
           {/* TAB 2: STREAK & KALENDÁŘ */}
           {currentTab === "streak" && (
             <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-              {/* Streak Highlight Card */}
               <div
                 className="glass-panel"
                 style={{
@@ -452,7 +633,6 @@ export default function Home() {
                 </p>
               </div>
 
-              {/* Calendar Grid */}
               <div className="glass-panel" style={{ padding: "16px", marginTop: "10px", flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
                   <span style={{ fontSize: "0.85rem", fontWeight: "700", color: "#f8fafc" }}>
@@ -463,7 +643,6 @@ export default function Home() {
                   </span>
                 </div>
 
-                {/* Day of Week Headers */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "6px", textAlign: "center", fontSize: "0.68rem", color: "#64748b", fontWeight: "700", marginBottom: "4px" }}>
                   <span>PO</span><span>ÚT</span><span>ST</span><span>ČT</span><span>PÁ</span><span>SO</span><span>NE</span>
                 </div>
@@ -503,7 +682,7 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* 7-Day Activity Chart (Minimalist Bar Graph) */}
+              {/* 7-Day Activity Chart */}
               <div className="glass-panel" style={{ padding: "14px 16px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -515,7 +694,6 @@ export default function Home() {
                   </span>
                 </div>
 
-                {/* Visual Bars */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "8px", alignItems: "flex-end", height: "80px", paddingBottom: "4px" }}>
                   {chartDays.map((d, i) => {
                     const heightPercent = Math.max(12, Math.min(100, Math.round((d.count / maxBarCount) * 100)));

@@ -79,7 +79,7 @@ export default function WordCard({ word, onKnown, onRepeat }: WordCardProps) {
         )}
       </div>
 
-      {/* Czech Translation (Tap to reveal or always highlighted) */}
+      {/* Czech Translation */}
       <div
         style={{
           background: showDetails ? "rgba(79, 70, 229, 0.15)" : "rgba(255, 255, 255, 0.05)",
@@ -98,22 +98,33 @@ export default function WordCard({ word, onKnown, onRepeat }: WordCardProps) {
         </div>
       </div>
 
-      {/* Detailed Definition & Examples (Revealed on click) */}
+      {/* Detailed Definition, Collocations & Examples */}
       {showDetails && (
         <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "10px", fontSize: "0.92rem", lineHeight: "1.4" }}>
           <div>
             <div style={{ color: "#94a3b8", fontSize: "0.8rem", fontWeight: "600" }}>DEFINICE:</div>
             <div style={{ color: "#e2e8f0" }}>{word.definition}</div>
           </div>
-          <div style={{ background: "rgba(0, 0, 0, 0.2)", padding: "10px", borderRadius: "8px" }}>
-            <div style={{ color: "#94a3b8", fontSize: "0.8rem", fontWeight: "600" }}>PŘÍKLAD V VĚTĚ:</div>
-            <div style={{ color: "#38bdf8", fontStyle: "italic" }}>"{word.example}"</div>
-            {word.exampleCzech && (
-              <div style={{ color: "#94a3b8", fontSize: "0.85rem", marginTop: "4px" }}>
-                "{word.exampleCzech}"
+
+          {word.collocations && word.collocations.length > 0 && (
+            <div>
+              <div style={{ color: "#94a3b8", fontSize: "0.8rem", fontWeight: "600", marginBottom: "4px" }}>TYPICKÁ SPOJENÍ:</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                {word.collocations.map((c, i) => (
+                  <span key={i} style={{ background: "rgba(255,255,255,0.08)", padding: "2px 8px", borderRadius: "6px", fontSize: "0.78rem", color: "#a5b4fc" }}>
+                    🔗 {c}
+                  </span>
+                ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {word.examples && word.examples.map((ex, idx) => (
+            <div key={idx} style={{ background: "rgba(0, 0, 0, 0.2)", padding: "10px", borderRadius: "8px" }}>
+              <div style={{ color: "#38bdf8", fontStyle: "italic" }}>"{ex.en}"</div>
+              {ex.cz && <div style={{ color: "#94a3b8", fontSize: "0.85rem", marginTop: "4px" }}>"{ex.cz}"</div>}
+            </div>
+          ))}
         </div>
       )}
 
