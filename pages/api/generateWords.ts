@@ -102,7 +102,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
-  const { level = "B2", count = 6, excludeWords = [] } = req.body;
+  const { level = "B2", count = 5, excludeWords = [] } = req.body;
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey || apiKey === "YOUR_GEMINI_API_KEY") {
@@ -113,9 +113,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
       model: "gemini-1.5-flash",
-      generationConfig: {
-        responseMimeType: "application/json",
-      },
     });
 
     const prompt = `You are an expert English vocabulary coach for Czech speakers.
@@ -131,7 +128,7 @@ For each word, return a JSON array of objects with the following keys:
 - "exampleCzech": Czech translation of the example sentence
 - "level": "${level === "MIXED" ? "B2 or C1" : level}"
 
-Output MUST be a pure JSON array of objects.`;
+Output ONLY a valid JSON array of objects, without markdown code fences.`;
 
     const result = await model.generateContent(prompt);
     let text = result.response.text().trim();
@@ -156,7 +153,6 @@ Output MUST be a pure JSON array of objects.`;
     return res.status(200).json(formattedWords);
   } catch (error: any) {
     console.error("Gemini API error, falling back to offline dictionary:", error?.message || error);
-    // Return curated words matching the level
     const matched = FALLBACK_WORDS.filter((w) => level === "MIXED" || w.level === level);
     return res.status(200).json(matched.length > 0 ? matched : FALLBACK_WORDS);
   }
