@@ -310,6 +310,33 @@ html, body {
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+.settings-row-font-size {
+  align-items: flex-start;
+}
+
+.settings-range-control {
+  display: flex;
+  flex: 0 1 190px;
+  align-items: center;
+  gap: 10px;
+  min-width: min(100%, 140px);
+}
+
+.settings-range-control input {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--primary-light);
+  cursor: pointer;
+}
+
+.settings-range-control output {
+  min-width: 3.5ch;
+  color: var(--text-main);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: right;
+}
+
 .settings-copy {
   min-width: 0;
 }
@@ -360,6 +387,49 @@ html, body {
   color: var(--text-main);
   color-scheme: dark;
   font-size: 0.82rem;
+}
+
+@media (max-width: 420px) {
+  .settings-row {
+    flex-wrap: wrap;
+  }
+
+  .settings-copy {
+    flex: 1 1 150px;
+  }
+
+  .settings-row-font-size {
+    flex-direction: column;
+    gap: 9px;
+  }
+
+  .settings-range-control {
+    flex-basis: auto;
+    width: 100%;
+  }
+
+  .settings-segmented,
+  .settings-install-button,
+  .settings-status,
+  .settings-checkbox,
+  .settings-time-input {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 360px) {
+  .review-card-face {
+    padding: 14px 12px;
+  }
+
+  .review-actions {
+    gap: 7px;
+  }
+
+  .review-actions button {
+    padding: 10px 6px;
+    font-size: 0.8rem;
+  }
 }
 
 .settings-note {

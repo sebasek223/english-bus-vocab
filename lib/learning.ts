@@ -7,15 +7,6 @@ export interface DailyActivity {
 
 export type DailyActivityLog = Record<string, DailyActivity>;
 
-export const LEARNING_CONFIG = {
-  bidirectionalEnabled: true,
-} as const;
-
-export function getNextDirection(direction: ReviewDirection): ReviewDirection {
-  if (!LEARNING_CONFIG.bidirectionalEnabled) return "en-to-cz";
-  return direction === "en-to-cz" ? "cz-to-en" : "en-to-cz";
-}
-
 export function migrateDailyActivityLog(rawLog: unknown, fallbackGoal: number): DailyActivityLog {
   if (typeof rawLog !== "object" || rawLog === null || Array.isArray(rawLog)) return {};
 

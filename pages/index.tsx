@@ -4,7 +4,6 @@ import Head from "next/head";
 import type { VocabWord } from "./api/generateWords";
 import {
   getActivityLevel,
-  getNextDirection,
   migrateDailyActivityLog,
   type DailyActivityLog,
   type ReviewDirection,
@@ -36,6 +35,9 @@ interface DayData {
 }
 
 const SRS_INTERVALS_DAYS = [1, 3, 7, 14, 30, 60];
+const FONT_SCALE_MIN = 85;
+const FONT_SCALE_MAX = 125;
+const FONT_SCALE_STEP = 5;
 
 function addDaysToDate(dateStr: string, days: number): string {
   const d = new Date(dateStr);
@@ -108,6 +110,7 @@ export default function Home() {
   const [supportsNotifications, setSupportsNotifications] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [flipMode, setFlipMode] = useState<"tap" | "hold">("tap");
+  const [fontScale, setFontScale] = useState(100);
 
   // Touch / Drag Swipe state
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -130,6 +133,12 @@ export default function Home() {
       document.documentElement.dataset.theme = savedTheme;
       document.documentElement.style.colorScheme = savedTheme;
       setTheme(savedTheme);
+      const storedFontScale = Number(localStorage.getItem("vocab_font_scale") || 100);
+      const savedFontScale = Number.isFinite(storedFontScale)
+        ? Math.min(FONT_SCALE_MAX, Math.max(FONT_SCALE_MIN, Math.round(storedFontScale / FONT_SCALE_STEP) * FONT_SCALE_STEP))
+        : 100;
+      document.documentElement.style.fontSize = `${savedFontScale}%`;
+      setFontScale(savedFontScale);
       setFlipMode(localStorage.getItem("vocab_card_flip_mode") === "hold" ? "hold" : "tap");
       setSupportsVibration(typeof navigator.vibrate === "function");
       setHapticsEnabled(localStorage.getItem("vocab_haptics_enabled") === "true");
@@ -256,6 +265,12 @@ export default function Home() {
     localStorage.setItem("vocab_card_flip_mode", nextMode);
   };
 
+  const handleFontScaleChange = (value: number) => {
+    setFontScale(value);
+    localStorage.setItem("vocab_font_scale", value.toString());
+    document.documentElement.style.fontSize = `${value}%`;
+  };
+
   const handleInstallClick = async () => {
     if (deferredPrompt) {
       deferredPrompt.prompt();
@@ -288,16 +303,16 @@ export default function Home() {
       examples: r.examples || [],
       level: r.level,
       theme: r.theme || "Slovní zásoba",
-      direction: r.direction || "en-to-cz",
+      direction: "en-to-cz" as const,
       reviewStage: r.stage,
     }));
 
     const neededNewCount = Math.max(3, 6 - dueVocabWords.length);
     const excludeList = currentSRS.map((r) => r.text);
     const prepareQueue = (queue: VocabWord[]) => {
-      return queue.map((word, index) => ({
+      return queue.map((word) => ({
         ...word,
-        direction: word.direction || "en-to-cz",
+        direction: "en-to-cz" as const,
       }));
     };
 
@@ -313,14 +328,7 @@ export default function Home() {
         const swapIndex = Math.floor(Math.random() * (index + 1));
         [shuffledNewWords[index], shuffledNewWords[swapIndex]] = [shuffledNewWords[swapIndex], shuffledNewWords[index]];
       }
-      const firstDirection: ReviewDirection = Math.random() < 0.5 ? "en-to-cz" : "cz-to-en";
-      const bidirectionalNewWords = shuffledNewWords.map((word, index) => ({
-        ...word,
-        direction: index % 2 === 0
-          ? firstDirection
-          : firstDirection === "en-to-cz" ? "cz-to-en" : "en-to-cz",
-      }));
-      setWords(prepareQueue([...dueVocabWords, ...bidirectionalNewWords]));
+      setWords(prepareQueue([...dueVocabWords, ...shuffledNewWords]));
       setCurrentIndex(0);
     } catch (e) {
       console.error(e);
@@ -407,7 +415,7 @@ export default function Home() {
         definition: currentWord.definition,
         collocations: currentWord.collocations,
         examples: currentWord.examples,
-        direction: getNextDirection(currentDirection),
+        direction: currentDirection,
         stage: nextStage,
         nextReviewDate,
         lastReviewDate: today,
@@ -1077,6 +1085,28 @@ export default function Home() {
                   <div className="settings-segmented" role="group" aria-label="Barevný režim">
                     <button type="button" aria-pressed={theme === "light"} onClick={() => handleThemeChange("light")}>Světlý</button>
                     <button type="button" aria-pressed={theme === "dark"} onClick={() => handleThemeChange("dark")}>Tmavý</button>
+                  </div>
+                </div>
+                <div className="settings-row settings-row-font-size">
+                  <div className="settings-copy">
+                    <label className="settings-label" htmlFor="font-scale">Velikost písma</label>
+                    <p className="settings-description" id="font-scale-description">
+                      Přizpůsob velikost textu. Rozložení se upraví podle velikosti obrazovky.
+                    </p>
+                  </div>
+                  <div className="settings-range-control">
+                    <input
+                      aria-describedby="font-scale-description"
+                      aria-label="Velikost písma"
+                      id="font-scale"
+                      max={FONT_SCALE_MAX}
+                      min={FONT_SCALE_MIN}
+                      onChange={(event) => handleFontScaleChange(Number(event.target.value))}
+                      step={FONT_SCALE_STEP}
+                      type="range"
+                      value={fontScale}
+                    />
+                    <output aria-live="polite" htmlFor="font-scale">{fontScale}%</output>
                   </div>
                 </div>
                 <div className="settings-row">
