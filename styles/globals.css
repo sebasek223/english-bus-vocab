@@ -136,9 +136,9 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(4px, 1.5vw, 8px);
+  gap: clamp(8px, 2vw, 12px);
   width: 100%;
-  margin-bottom: clamp(8px, 2vw, 14px);
+  margin-bottom: clamp(12px, 3vw, 20px);
 }
 
 .review-back-section {
@@ -150,7 +150,7 @@ html, body {
   margin-top: clamp(6px, 1.5vw, 10px);
 }
 .review-back-en-word {
-  font-size: clamp(1.55rem, 6.5vw, 2.4rem);
+  font-size: clamp(2rem, 8vw, 3rem);
   font-weight: 900;
   letter-spacing: -0.03em;
   line-height: 1.05;
