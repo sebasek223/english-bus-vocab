@@ -5,6 +5,13 @@ import { VocabWord } from "./api/generateWords";
 
 type TabType = "vocab" | "streak" | "progress";
 
+interface DayData {
+  dayName: string;
+  dateKey: string;
+  count: number;
+  isToday: boolean;
+}
+
 export default function Home() {
   const [currentTab, setCurrentTab] = useState<TabType>("vocab");
   const [words, setWords] = useState<VocabWord[]>([]);
@@ -16,6 +23,7 @@ export default function Home() {
   const [streak, setStreak] = useState(1);
   const [activeDays, setActiveDays] = useState<string[]>([]);
   const [knownWords, setKnownWords] = useState<{ text: string; czech: string; level: string }[]>([]);
+  const [weeklyHistory, setWeeklyHistory] = useState<{ [dateKey: string]: number }>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
@@ -28,9 +36,11 @@ export default function Home() {
       const savedTarget = parseInt(localStorage.getItem("vocab_target") || "10", 10);
       const savedKnown = JSON.parse(localStorage.getItem("vocab_known_words_v2") || "[]");
       const savedDays: string[] = JSON.parse(localStorage.getItem("vocab_active_days") || "[]");
+      const savedHistory: { [dateKey: string]: number } = JSON.parse(localStorage.getItem("vocab_daily_counts") || "{}");
 
       setDailyTarget(savedTarget);
       setKnownWords(savedKnown);
+      setWeeklyHistory(savedHistory);
 
       let currentActiveDays = savedDays;
       if (!currentActiveDays.includes(today)) {
@@ -40,7 +50,8 @@ export default function Home() {
       setActiveDays(currentActiveDays);
 
       if (savedDate === today) {
-        setLearnedToday(parseInt(localStorage.getItem("vocab_learned_today") || "0", 10));
+        const todayCount = parseInt(localStorage.getItem("vocab_learned_today") || "0", 10);
+        setLearnedToday(todayCount);
         setStreak(savedStreak);
       } else {
         const yesterday = new Date();
@@ -104,6 +115,11 @@ export default function Home() {
     setLearnedToday(newLearned);
     localStorage.setItem("vocab_learned_today", newLearned.toString());
 
+    // Update daily history for charts
+    const updatedHistory = { ...weeklyHistory, [today]: newLearned };
+    setWeeklyHistory(updatedHistory);
+    localStorage.setItem("vocab_daily_counts", JSON.stringify(updatedHistory));
+
     // Add to known
     const updatedKnown = [
       ...knownWords.filter((w) => w.text !== currentWord.text),
@@ -123,7 +139,6 @@ export default function Home() {
 
   const handleRepeat = () => {
     if (!currentWord) return;
-    // Push word to end of queue
     setWords((prev) => [...prev.filter((_, i) => i !== currentIndex), currentWord]);
     setShowAnswer(false);
   };
@@ -137,16 +152,39 @@ export default function Home() {
     }
   };
 
+  // Generate 7-day chart data
+  const get7DayChartData = (): DayData[] => {
+    const dayNames = ["NE", "PO", "ÚT", "ST", "ČT", "PÁ", "SO"];
+    const result: DayData[] = [];
+    const todayStr = new Date().toISOString().split("T")[0];
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateKey = d.toISOString().split("T")[0];
+      const dayName = i === 0 ? "Dnes" : dayNames[d.getDay()];
+      const count = dateKey === todayStr ? learnedToday : (weeklyHistory[dateKey] || 0);
+
+      result.push({
+        dayName,
+        dateKey,
+        count,
+        isToday: i === 0,
+      });
+    }
+    return result;
+  };
+
   // Calendar generation for current month
   const renderCalendar = () => {
     const now = new Date();
     const year = now.getFullYear();
     const month = now.getMonth();
-    const firstDay = new Date(year, month, 1).getDay(); // 0 = Sun
+    const firstDay = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const todayNum = now.getDate();
 
-    const shiftedFirstDay = firstDay === 0 ? 6 : firstDay - 1; // Mon = 0
+    const shiftedFirstDay = firstDay === 0 ? 6 : firstDay - 1;
     const cells = [];
 
     for (let i = 0; i < shiftedFirstDay; i++) {
@@ -170,7 +208,18 @@ export default function Home() {
     return cells;
   };
 
+  // Rank determination based on total words learned
+  const getRank = (count: number) => {
+    if (count >= 100) return { title: "C1 Anglický Expert", icon: "👑", color: "#fbbf24" };
+    if (count >= 50) return { title: "B2 Pokročilý Mistr", icon: "🥇", color: "#818cf8" };
+    if (count >= 20) return { title: "Aktivní Student", icon: "🥈", color: "#38bdf8" };
+    return { title: "Začínající Cestovatel", icon: "🥉", color: "#10b981" };
+  };
+
   const progressPercent = Math.min(100, Math.round((learnedToday / dailyTarget) * 100));
+  const chartDays = get7DayChartData();
+  const maxBarCount = Math.max(dailyTarget, ...chartDays.map((d) => d.count), 1);
+  const userRank = getRank(knownWords.length);
 
   return (
     <>
@@ -433,47 +482,118 @@ export default function Home() {
             </div>
           )}
 
-          {/* TAB 3: PROGRES & STATISTIKY */}
+          {/* TAB 3: PROGRES & STATISTICKÝ GRAF */}
           {currentTab === "progress" && (
             <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "10px", overflow: "hidden" }}>
-              {/* Daily Target Progress */}
-              <div className="glass-panel" style={{ padding: "16px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                  <span style={{ fontSize: "0.82rem", color: "#94a3b8", fontWeight: "600" }}>DENNÍ CÍL</span>
-                  <span style={{ fontSize: "0.95rem", fontWeight: "800", color: "#38bdf8" }}>
-                    {learnedToday} / {dailyTarget} slov ({progressPercent}%)
+              {/* Rank & Level Badge */}
+              <div
+                className="glass-panel"
+                style={{
+                  padding: "12px 16px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  background: "linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(18, 24, 38, 0.8))",
+                  border: "1px solid rgba(99, 102, 241, 0.3)",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <span style={{ fontSize: "1.6rem" }}>{userRank.icon}</span>
+                  <div>
+                    <div style={{ fontSize: "0.72rem", color: "#94a3b8", fontWeight: "600", textTransform: "uppercase" }}>Tvoje Úroveň</div>
+                    <div style={{ fontSize: "0.95rem", fontWeight: "800", color: userRank.color }}>{userRank.title}</div>
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: "1.1rem", fontWeight: "800", color: "#ffffff" }}>{knownWords.length}</div>
+                  <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>slov celkem</div>
+                </div>
+              </div>
+
+              {/* 7-Day Activity Chart (Minimalist Bar Graph) */}
+              <div className="glass-panel" style={{ padding: "14px 16px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span style={{ fontSize: "0.9rem" }}>📈</span>
+                    <span style={{ fontSize: "0.82rem", fontWeight: "700", color: "#f8fafc" }}>Aktivita za 7 dní</span>
+                  </div>
+                  <span style={{ fontSize: "0.72rem", color: "#38bdf8", fontWeight: "700" }}>
+                    Cíl: {dailyTarget} slov/den
                   </span>
                 </div>
-                <div style={{ width: "100%", height: "8px", background: "rgba(255, 255, 255, 0.08)", borderRadius: "99px", overflow: "hidden" }}>
-                  <div style={{ width: `${progressPercent}%`, height: "100%", background: "linear-gradient(90deg, #6366f1, #10b981)", transition: "width 0.3s ease" }} />
+
+                {/* Visual Bars */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "8px", alignItems: "flex-end", height: "80px", paddingBottom: "4px" }}>
+                  {chartDays.map((d, i) => {
+                    const heightPercent = Math.max(12, Math.min(100, Math.round((d.count / maxBarCount) * 100)));
+                    const isSuccess = d.count >= dailyTarget;
+
+                    return (
+                      <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", height: "100%", justifyContent: "flex-end" }}>
+                        <span style={{ fontSize: "0.65rem", fontWeight: "700", color: d.count > 0 ? (isSuccess ? "#10b981" : "#818cf8") : "#475569", marginBottom: "4px" }}>
+                          {d.count > 0 ? d.count : "0"}
+                        </span>
+                        <div
+                          style={{
+                            width: "100%",
+                            height: `${heightPercent}%`,
+                            borderRadius: "6px",
+                            background: d.count === 0
+                              ? "rgba(255, 255, 255, 0.05)"
+                              : d.isToday
+                              ? "linear-gradient(180deg, #38bdf8, #6366f1)"
+                              : isSuccess
+                              ? "linear-gradient(180deg, #10b981, #059669)"
+                              : "linear-gradient(180deg, #818cf8, #4f46e5)",
+                            boxShadow: d.count > 0 ? "0 2px 8px rgba(99, 102, 241, 0.3)" : "none",
+                            transition: "height 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                          }}
+                        />
+                        <span
+                          style={{
+                            fontSize: "0.68rem",
+                            marginTop: "6px",
+                            fontWeight: d.isToday ? "800" : "600",
+                            color: d.isToday ? "#38bdf8" : "#64748b",
+                          }}
+                        >
+                          {d.dayName}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Stats Counters */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-                <div className="glass-panel" style={{ padding: "12px", textAlign: "center" }}>
-                  <div style={{ fontSize: "1.35rem", fontWeight: "800", color: "#10b981" }}>{knownWords.length}</div>
-                  <div style={{ fontSize: "0.72rem", color: "#94a3b8" }}>Celkem naučeno</div>
-                </div>
-                <div className="glass-panel" style={{ padding: "12px", textAlign: "center" }}>
-                  <div style={{ fontSize: "1.35rem", fontWeight: "800", color: "#818cf8" }}>
-                    {knownWords.filter((w) => w.level === "C1").length}
-                  </div>
-                  <div style={{ fontSize: "0.72rem", color: "#94a3b8" }}>C1 pokročilých</div>
-                </div>
+              {/* Motivational Insight Pill */}
+              <div
+                style={{
+                  background: "rgba(245, 158, 11, 0.08)",
+                  border: "1px dashed rgba(245, 158, 11, 0.3)",
+                  borderRadius: "12px",
+                  padding: "8px 12px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  fontSize: "0.76rem",
+                  color: "#fde68a",
+                }}
+              >
+                <span>💡</span>
+                <span>Při 10 slovech denně v autobuse zvládneš <strong>+300 slov za měsíc!</strong></span>
               </div>
 
-              {/* Learned words list (Internal scrollable) */}
-              <div className="glass-panel no-scrollbar" style={{ flex: 1, padding: "14px", overflowY: "auto" }}>
-                <div style={{ fontSize: "0.82rem", fontWeight: "700", marginBottom: "8px", color: "#94a3b8" }}>
+              {/* Learned Words Mini List */}
+              <div className="glass-panel no-scrollbar" style={{ flex: 1, padding: "12px", overflowY: "auto", minHeight: "80px" }}>
+                <div style={{ fontSize: "0.75rem", fontWeight: "700", marginBottom: "6px", color: "#94a3b8" }}>
                   NAUČENÁ SLOVÍČKA ({knownWords.length})
                 </div>
                 {knownWords.length === 0 ? (
-                  <div style={{ textAlign: "center", color: "#64748b", fontSize: "0.82rem", padding: "20px" }}>
-                    Zatím jsi neoznačil žádné slovo jako naučené.
+                  <div style={{ textAlign: "center", color: "#64748b", fontSize: "0.78rem", padding: "12px" }}>
+                    Zatím jsi neoznačil žádné slovo.
                   </div>
                 ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
                     {knownWords.slice().reverse().map((item, idx) => (
                       <div
                         key={idx}
@@ -481,17 +601,17 @@ export default function Home() {
                           display: "flex",
                           justifyContent: "space-between",
                           alignItems: "center",
-                          padding: "8px 10px",
+                          padding: "6px 8px",
                           background: "rgba(255, 255, 255, 0.03)",
-                          borderRadius: "10px",
-                          fontSize: "0.82rem",
+                          borderRadius: "8px",
+                          fontSize: "0.78rem",
                         }}
                       >
                         <div>
                           <strong style={{ color: "#ffffff" }}>{item.text}</strong>
                           <span style={{ color: "#64748b", marginLeft: "6px" }}>• {item.czech}</span>
                         </div>
-                        <span style={{ fontSize: "0.68rem", fontWeight: "700", color: item.level === "C1" ? "#fbbf24" : "#818cf8" }}>
+                        <span style={{ fontSize: "0.65rem", fontWeight: "700", color: item.level === "C1" ? "#fbbf24" : "#818cf8" }}>
                           {item.level}
                         </span>
                       </div>
