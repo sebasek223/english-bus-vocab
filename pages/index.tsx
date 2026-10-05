@@ -969,7 +969,7 @@ export default function Home() {
                         }}
                       >
                        
-                        <h2 className="review-back-word">{currentPrompt}</h2>
+                        <h2 className="review-front-word">{currentPrompt}</h2>
                         {currentWord.phonetic && (
                           <div className="review-phonetic">{currentWord.phonetic}</div>
                         )}
