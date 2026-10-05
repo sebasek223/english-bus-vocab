@@ -121,6 +121,7 @@ export default function Home() {
   const canFlipFromPointerRef = useRef(false);
   const holdTimerRef = useRef<number | null>(null);
   const holdTriggeredRef = useRef(false);
+  const swipeHapticStateRef = useRef<"none" | "left" | "right">("none");
 
   // Load persistence and PWA detection
   useEffect(() => {
@@ -225,6 +226,16 @@ export default function Home() {
     scheduleNextReminder();
     return () => window.clearTimeout(timer);
   }, [dailyReminderEnabled, dailyReminderTime, notificationPermission]);
+
+  // Subtle haptic feedback: short pulses for meaningful interactions only.
+  const haptic = (pattern: number | number[]) => {
+    if (!hapticsEnabled || typeof navigator === "undefined" || typeof navigator.vibrate !== "function") return;
+    try {
+      navigator.vibrate(pattern);
+    } catch {
+      // Vibration is optional and can be blocked by the browser/device.
+    }
+  };
 
   const handleHapticsChange = (enabled: boolean) => {
     setHapticsEnabled(enabled);
@@ -348,6 +359,7 @@ export default function Home() {
 
   const handleFlip = () => {
     if (!currentWord || isFlyingOut) return;
+    haptic(10);
     setShowAnswer((previous) => !previous);
   };
 
@@ -382,7 +394,7 @@ export default function Home() {
   // SRS Update: Move up in memory stages + Trigger Fanfare if daily target reached
   const handleKnown = () => {
     if (!currentWord || isFlyingOut) return;
-    if (hapticsEnabled) navigator.vibrate?.(18);
+    haptic(14);
     setIsFlyingOut("right");
 
     setTimeout(() => {
@@ -441,7 +453,7 @@ export default function Home() {
 
   const handleRepeat = () => {
     if (!currentWord || isFlyingOut) return;
-    if (hapticsEnabled) navigator.vibrate?.(35);
+    haptic([18, 24, 12]);
     setIsFlyingOut("left");
 
     setTimeout(() => {
@@ -505,12 +517,14 @@ export default function Home() {
     touchStartRef.current = { x: e.clientX, y: e.clientY };
     swipeDirectionRef.current = "undecided";
     holdTriggeredRef.current = false;
+    swipeHapticStateRef.current = "none";
     setIsDragging(true);
 
     if (flipMode === "hold" && canFlipFromPointerRef.current) {
       holdTimerRef.current = window.setTimeout(() => {
         if (swipeDirectionRef.current !== "undecided") return;
         holdTriggeredRef.current = true;
+        haptic(12);
         setIsDragging(false);
         handleFlip();
       }, 500);
@@ -541,6 +555,13 @@ export default function Home() {
     }
 
     setDragOffset({ x: deltaX, y: 0 });
+
+    // One tiny pulse when the swipe becomes actionable. No vibration spam while dragging.
+    const nextSwipeState = deltaX > 75 ? "right" : deltaX < -75 ? "left" : "none";
+    if (nextSwipeState !== swipeHapticStateRef.current) {
+      swipeHapticStateRef.current = nextSwipeState;
+      if (nextSwipeState !== "none") haptic(8);
+    }
   };
 
   const handleTouchEnd = () => {
@@ -550,6 +571,7 @@ export default function Home() {
     }
     const canFlip = canFlipFromPointerRef.current;
     canFlipFromPointerRef.current = false;
+    swipeHapticStateRef.current = "none";
     if (holdTriggeredRef.current) {
       holdTriggeredRef.current = false;
       setIsDragging(false);
@@ -577,6 +599,7 @@ export default function Home() {
     }
     holdTriggeredRef.current = false;
     canFlipFromPointerRef.current = false;
+    swipeHapticStateRef.current = "none";
     swipeDirectionRef.current = "vertical";
     setIsDragging(false);
     setDragOffset({ x: 0, y: 0 });

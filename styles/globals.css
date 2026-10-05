@@ -101,8 +101,8 @@ html, body {
   color: var(--text-muted);
   padding: 3px 10px;
   border-radius: 20px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   flex-shrink: 0;
 }
 
@@ -132,14 +132,13 @@ html, body {
   overflow-y: auto;
 }
 
-
 .review-back-header {
   display: flex;
   flex-direction: column;
   align-items: flex-start; /* left align items */
   gap: clamp(12px, 3vw, 18px); /* more vertical space */
   width: 100%;
-  margin-bottom: clamp(14px, 3.5vw, 22px);
+  margin-bottom: clamp(20px, 5vw, 34px);
 }
 
 .review-back-section {
@@ -150,6 +149,7 @@ html, body {
   gap: 6px;
   margin-top: clamp(6px, 1.5vw, 10px);
 }
+
 .review-back-en-word {
   font-size: clamp(2.4rem, 9vw, 3.5rem);
   font-weight: 900;
@@ -177,16 +177,6 @@ html, body {
   line-height: 1.55;
   text-align: center;
   margin-bottom: clamp(6px, 1.5vw, 10px);
-}
-
-/* Section wrapper (Collocations / Examples) */
-.review-back-section {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  margin-top: clamp(6px, 1.5vw, 10px);
 }
 
 .review-back-section-label {
@@ -221,8 +211,8 @@ html, body {
 }
 
 .review-back-example-row {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.07);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 10px;
   padding: clamp(7px, 2vw, 10px) clamp(8px, 2.5vw, 12px);
   text-align: left;
@@ -889,4 +879,37 @@ html[data-theme="light"] .btn-repeat {
   line-height: 1.1;
   letter-spacing: -0.03em;
   color: #38bdf8;
+}
+
+/* ── Subtle tactile feedback ── */
+.review-actions button,
+.btn-primary,
+.tab-btn,
+.settings-segmented button {
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.14s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.14s ease, filter 0.14s ease;
+}
+
+.review-actions button:active,
+.btn-primary:active,
+.tab-btn:active,
+.settings-segmented button:active {
+  transform: scale(0.965);
+  filter: brightness(0.96);
+}
+
+.review-back-collocations span:active,
+.review-back-example-row:active {
+  transform: scale(0.985);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .review-actions button,
+  .btn-primary,
+  .tab-btn,
+  .settings-segmented button,
+  .review-back-collocations span,
+  .review-back-example-row {
+    transition: none;
+  }
 }
