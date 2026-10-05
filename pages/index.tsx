@@ -845,9 +845,8 @@ export default function Home() {
                       maxHeight: "min(560px, 100%)",
                       border: showAnswer ? "1px solid rgba(99, 102, 241, 0.4)" : "1px solid rgba(255, 255, 255, 0.1)",
                       cursor: "grab",
-                      transform: cardVisualTransform,
-                      transformStyle: "preserve-3d",
                       perspective: "1200px",
+                      transform: cardTransform,
                       transition: cardTransition,
                       opacity: cardOpacity,
                       position: "relative",
@@ -856,9 +855,13 @@ export default function Home() {
                     }}
                   >
                     <div
-                      className="review-card-face review-card-front"
-                      style={{ zIndex: showAnswer ? 0 : 1 }}
+                      className="review-card-flipper"
+                      style={{ transform: `rotateY(${showAnswer ? 180 : 0}deg)` }}
                     >
+                      <div
+                        className="review-card-face review-card-front"
+                        style={{ zIndex: showAnswer ? 0 : 1 }}
+                      >
                       {/* Swipe Visual Cue Indicators */}
                       {isSwipingRight && (
                         <div
@@ -981,39 +984,40 @@ export default function Home() {
                       </div>
                     </div>
 
-                    <div
-                      className="review-card-face review-card-back"
-                      style={{ zIndex: showAnswer ? 1 : 0 }}
-                      data-card-flip-target=""
-                      role="button"
-                      tabIndex={showAnswer ? 0 : -1}
-                      aria-hidden={!showAnswer}
-                      aria-label="Skrýt odpověď"
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          handleFlip();
-                        }
-                      }}
-                    >
-                      <span className="review-step-label">ODPOVĚĎ</span>
-                      <h2 className="review-back-word">{currentAnswer}</h2>
-                      {currentWord.definition && <div className="review-back-definition">{currentWord.definition}</div>}
-                      {currentWord.collocations?.length ? (
-                        <div className="review-back-collocations">
-                          {currentWord.collocations.map((collocation) => <span key={collocation}>{collocation}</span>)}
-                        </div>
-                      ) : null}
-                      {currentWord.examples?.length ? (
-                        <div className="review-back-examples">
-                          {currentWord.examples.map((example) => (
-                            <div key={example.en}>
-                              <p>{example.en}</p>
-                              {example.cz && <p>{example.cz}</p>}
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
+                      <div
+                        className="review-card-face review-card-back"
+                        style={{ zIndex: showAnswer ? 1 : 0 }}
+                        data-card-flip-target=""
+                        role="button"
+                        tabIndex={showAnswer ? 0 : -1}
+                        aria-hidden={!showAnswer}
+                        aria-label="Skrýt odpověď"
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            handleFlip();
+                          }
+                        }}
+                      >
+                        <span className="review-step-label">ODPOVĚĎ</span>
+                        <h2 className="review-back-word">{currentAnswer}</h2>
+                        {currentWord.definition && <div className="review-back-definition">{currentWord.definition}</div>}
+                        {currentWord.collocations?.length ? (
+                          <div className="review-back-collocations">
+                            {currentWord.collocations.map((collocation) => <span key={collocation}>{collocation}</span>)}
+                          </div>
+                        ) : null}
+                        {currentWord.examples?.length ? (
+                          <div className="review-back-examples">
+                            {currentWord.examples.map((example) => (
+                              <div key={example.en}>
+                                <p>{example.en}</p>
+                                {example.cz && <p>{example.cz}</p>}
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 )}

@@ -45,6 +45,14 @@ html, body {
   border-radius: 20px;
 }
 
+.review-card-flipper {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transition: transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+}
+
 .review-card-face {
   position: absolute;
   inset: 0;
