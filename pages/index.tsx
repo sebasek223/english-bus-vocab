@@ -1,5 +1,5 @@
 // pages/index.tsx
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import Head from "next/head";
 import { VocabWord } from "./api/generateWords";
 
@@ -18,11 +18,6 @@ export default function Home() {
   const [knownWords, setKnownWords] = useState<{ text: string; czech: string; level: string }[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-
-  // 5-min Bus Timer
-  const [timerActive, setTimerActive] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(300);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load persistence
   useEffect(() => {
@@ -66,39 +61,6 @@ export default function Home() {
       fetchWords("B2");
     }
   }, []);
-
-  // Timer countdown
-  useEffect(() => {
-    if (timerActive && timeLeft > 0) {
-      timerRef.current = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
-    } else if (timeLeft === 0 && timerActive) {
-      setTimerActive(false);
-      if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
-        new Notification("🚍 5 minut v autobuse vypršelo!", {
-          body: "Dnešní rychlá lekce je hotová!",
-          icon: "/icons/icon-192.png",
-        });
-      } else {
-        alert("🎉 5 minut v autobuse vypršelo! Skvělá práce!");
-      }
-    }
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [timerActive, timeLeft]);
-
-  const toggleTimer = () => {
-    if (!timerActive) {
-      if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
-        Notification.requestPermission();
-      }
-      setTimeLeft(300);
-      setTimerActive(true);
-    } else {
-      setTimerActive(false);
-      setTimeLeft(300);
-    }
-  };
 
   const fetchWords = async (targetLevel = level) => {
     setIsLoading(true);
@@ -175,12 +137,6 @@ export default function Home() {
     }
   };
 
-  const formatTimer = (sec: number) => {
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${m}:${s < 10 ? "0" : ""}${s}`;
-  };
-
   // Calendar generation for current month
   const renderCalendar = () => {
     const now = new Date();
@@ -226,7 +182,7 @@ export default function Home() {
       </Head>
 
       <div style={{ display: "flex", flexDirection: "column", height: "100dvh", maxWidth: "480px", margin: "0 auto", width: "100%" }}>
-        {/* Top Header */}
+        {/* Top Minimal Header */}
         <header
           style={{
             padding: "12px 16px",
@@ -241,48 +197,27 @@ export default function Home() {
             <span style={{ fontWeight: "800", fontSize: "1.05rem", letterSpacing: "-0.02em" }}>BusVocab</span>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <button
-              onClick={toggleTimer}
-              style={{
-                background: timerActive ? "rgba(99, 102, 241, 0.2)" : "rgba(255, 255, 255, 0.06)",
-                border: timerActive ? "1px solid #6366f1" : "1px solid rgba(255, 255, 255, 0.1)",
-                color: timerActive ? "#818cf8" : "#94a3b8",
-                padding: "4px 10px",
-                borderRadius: "20px",
-                fontSize: "0.78rem",
-                fontWeight: "700",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-              }}
-            >
-              ⏱️ {timerActive ? formatTimer(timeLeft) : "5 min"}
-            </button>
-
-            <div
-              onClick={() => setCurrentTab("streak")}
-              style={{
-                background: "rgba(245, 158, 11, 0.15)",
-                border: "1px solid rgba(245, 158, 11, 0.3)",
-                color: "#fbbf24",
-                padding: "4px 10px",
-                borderRadius: "20px",
-                fontSize: "0.8rem",
-                fontWeight: "700",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-              }}
-            >
-              🔥 {streak}
-            </div>
+          <div
+            onClick={() => setCurrentTab("streak")}
+            style={{
+              background: "rgba(245, 158, 11, 0.15)",
+              border: "1px solid rgba(245, 158, 11, 0.3)",
+              color: "#fbbf24",
+              padding: "4px 12px",
+              borderRadius: "20px",
+              fontSize: "0.82rem",
+              fontWeight: "700",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+            }}
+          >
+            🔥 {streak} {streak === 1 ? "den" : streak < 5 ? "dny" : "dní"}
           </div>
         </header>
 
-        {/* Main Single-Screen Content Area (No Outer Scrolling) */}
+        {/* Main Single-Screen Content Area */}
         <main style={{ flex: 1, padding: "16px", display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
           {/* TAB 1: SLOVÍČKA (Single Flashcard View) */}
           {currentTab === "vocab" && (
@@ -301,7 +236,7 @@ export default function Home() {
                         background: level === lvl ? "#6366f1" : "transparent",
                         color: level === lvl ? "#ffffff" : "#94a3b8",
                         border: "none",
-                        padding: "4px 10px",
+                        padding: "5px 12px",
                         borderRadius: "8px",
                         fontSize: "0.75rem",
                         fontWeight: "700",
@@ -313,7 +248,7 @@ export default function Home() {
                   ))}
                 </div>
 
-                <div style={{ fontSize: "0.78rem", color: "#94a3b8", fontWeight: "600" }}>
+                <div style={{ fontSize: "0.8rem", color: "#94a3b8", fontWeight: "600" }}>
                   Dnes: <strong style={{ color: "#38bdf8" }}>{learnedToday}/{dailyTarget}</strong>
                 </div>
               </div>
@@ -329,7 +264,7 @@ export default function Home() {
                   <div className="glass-panel" style={{ padding: "24px", textAlign: "center", width: "100%" }}>
                     <div style={{ fontSize: "2rem", marginBottom: "8px" }}>🎉</div>
                     <div style={{ fontWeight: "800", fontSize: "1.1rem", marginBottom: "6px" }}>Kolo dokončeno!</div>
-                    <p style={{ fontSize: "0.82rem", color: "#94a3b8", marginBottom: "16px" }}>Skvělá práce v autobuse.</p>
+                    <p style={{ fontSize: "0.82rem", color: "#94a3b8", marginBottom: "16px" }}>Skvělá práce.</p>
                     <button onClick={() => fetchWords(level)} className="btn-primary" style={{ padding: "10px 20px", fontSize: "0.88rem" }}>
                       ⚡ Dalších 5 slovíček
                     </button>
@@ -340,7 +275,7 @@ export default function Home() {
                     className="glass-panel"
                     style={{
                       width: "100%",
-                      padding: "20px",
+                      padding: "22px 18px",
                       display: "flex",
                       flexDirection: "column",
                       justifyContent: "space-between",
@@ -357,7 +292,7 @@ export default function Home() {
                         style={{
                           fontSize: "0.72rem",
                           fontWeight: "800",
-                          padding: "2px 8px",
+                          padding: "3px 9px",
                           borderRadius: "6px",
                           background: currentWord.level === "C1" ? "rgba(245, 158, 11, 0.2)" : "rgba(99, 102, 241, 0.2)",
                           color: currentWord.level === "C1" ? "#fbbf24" : "#818cf8",
@@ -375,9 +310,9 @@ export default function Home() {
                           background: "rgba(255, 255, 255, 0.08)",
                           border: "none",
                           borderRadius: "50%",
-                          width: "34px",
-                          height: "34px",
-                          fontSize: "1rem",
+                          width: "36px",
+                          height: "36px",
+                          fontSize: "1.05rem",
                           cursor: "pointer",
                           color: isPlayingAudio ? "#818cf8" : "#ffffff",
                         }}
@@ -388,11 +323,11 @@ export default function Home() {
 
                     {/* Word & Phonetic */}
                     <div style={{ textAlign: "center", margin: "10px 0" }}>
-                      <h2 style={{ fontSize: "1.85rem", fontWeight: "800", color: "#ffffff", letterSpacing: "-0.02em" }}>
+                      <h2 style={{ fontSize: "1.9rem", fontWeight: "800", color: "#ffffff", letterSpacing: "-0.02em" }}>
                         {currentWord.text}
                       </h2>
                       {currentWord.phonetic && (
-                        <div style={{ color: "#94a3b8", fontSize: "0.88rem", fontStyle: "italic", marginTop: "2px" }}>
+                        <div style={{ color: "#94a3b8", fontSize: "0.9rem", fontStyle: "italic", marginTop: "2px" }}>
                           {currentWord.phonetic}
                         </div>
                       )}
@@ -410,10 +345,10 @@ export default function Home() {
                     >
                       {showAnswer ? (
                         <div>
-                          <div style={{ fontSize: "1.15rem", fontWeight: "800", color: "#f8fafc", marginBottom: "4px" }}>
+                          <div style={{ fontSize: "1.2rem", fontWeight: "800", color: "#f8fafc", marginBottom: "4px" }}>
                             🇨🇿 {currentWord.czechTranslation}
                           </div>
-                          <div style={{ fontSize: "0.78rem", color: "#38bdf8", fontStyle: "italic", marginTop: "4px" }}>
+                          <div style={{ fontSize: "0.8rem", color: "#38bdf8", fontStyle: "italic", marginTop: "4px" }}>
                             "{currentWord.example}"
                           </div>
                         </div>
@@ -424,7 +359,7 @@ export default function Home() {
                       )}
                     </div>
 
-                    <div style={{ textAlign: "center", fontSize: "0.7rem", color: "#475569", marginTop: "4px" }}>
+                    <div style={{ textAlign: "center", fontSize: "0.72rem", color: "#475569", marginTop: "4px" }}>
                       Karta {currentIndex + 1} z {words.length}
                     </div>
                   </div>
@@ -471,7 +406,7 @@ export default function Home() {
                   {streak} {streak === 1 ? "den" : streak < 5 ? "dny" : "dní"} v řadě
                 </div>
                 <p style={{ fontSize: "0.82rem", color: "#94a3b8", marginTop: "2px" }}>
-                  Skvělý návyk! Učení každý den v autobuse funguje nejlépe.
+                  Skvělý návyk! Každodenní procvičování funguje nejlépe.
                 </p>
               </div>
 
