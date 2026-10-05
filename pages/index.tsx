@@ -1020,7 +1020,7 @@ export default function Home() {
                         {/* Collocations */}
                         {currentWord.collocations?.length ? (
                           <div className="review-back-section">
-                            <span className="review-back-section-label">Kolokace</span>
+                            <span className="review-back-section-label">Využití</span>
                             <div className="review-back-collocations">
                               {currentWord.collocations.map((collocation) => (
                                 <span key={collocation}>{collocation}</span>
