@@ -34,6 +34,42 @@ function addDaysToDate(dateStr: string, days: number): string {
   return d.toISOString().split("T")[0];
 }
 
+// Synthesized triumph fanfare using Web Audio API (works 100% offline)
+function playFanfareSound() {
+  if (typeof window === "undefined") return;
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+
+    const notes = [
+      { freq: 523.25, time: 0.0, dur: 0.12 }, // C5
+      { freq: 659.25, time: 0.12, dur: 0.12 }, // E5
+      { freq: 783.99, time: 0.24, dur: 0.15 }, // G5
+      { freq: 1046.5, time: 0.38, dur: 0.6 }, // C6
+      { freq: 1318.51, time: 0.5, dur: 0.7 }, // E6
+    ];
+
+    notes.forEach((n) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(n.freq, ctx.currentTime + n.time);
+
+      gain.gain.setValueAtTime(0, ctx.currentTime + n.time);
+      gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + n.time + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + n.time + n.dur);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + n.time);
+      osc.stop(ctx.currentTime + n.time + n.dur);
+    });
+  } catch (e) {
+    console.error("Audio fanfare error:", e);
+  }
+}
+
 export default function Home() {
   const [currentTab, setCurrentTab] = useState<TabType>("vocab");
   const [words, setWords] = useState<VocabWord[]>([]);
@@ -47,6 +83,9 @@ export default function Home() {
   const [weeklyHistory, setWeeklyHistory] = useState<{ [dateKey: string]: number }>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+
+  // Celebration state
+  const [showCelebration, setShowCelebration] = useState(false);
 
   // Install PWA state
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -62,13 +101,11 @@ export default function Home() {
   // Load persistence and PWA detection
   useEffect(() => {
     if (typeof window !== "undefined") {
-      // Check if already running standalone (installed PWA)
       const isStandaloneMode =
         window.matchMedia("(display-mode: standalone)").matches ||
         (window.navigator as any).standalone === true;
       setIsStandalone(isStandaloneMode);
 
-      // Listen for Android beforeinstallprompt
       window.addEventListener("beforeinstallprompt", (e: any) => {
         e.preventDefault();
         setDeferredPrompt(e);
@@ -189,6 +226,7 @@ export default function Home() {
     }
   };
 
+  // SRS Update: Move up in memory stages + Trigger Fanfare if daily target reached
   const handleKnown = () => {
     if (!currentWord || isFlyingOut) return;
     setIsFlyingOut("right");
@@ -229,10 +267,15 @@ export default function Home() {
       setSrsRecords(updatedSRSList);
       localStorage.setItem("vocab_srs_records_v1", JSON.stringify(updatedSRSList));
 
+      // Trigger Celebration Fanfare + Confetti when reaching daily target
       if (newLearned >= dailyTarget && learnedToday < dailyTarget) {
         const newStreak = streak + 1;
         setStreak(newStreak);
         localStorage.setItem("vocab_streak", newStreak.toString());
+
+        // Play fanfare sound and show modal
+        playFanfareSound();
+        setShowCelebration(true);
       }
 
       nextCard();
@@ -438,7 +481,7 @@ export default function Home() {
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#090d16" />
 
-        {/* PWA Standalone Fullscreen Meta Tags (removes URL bar on mobile) */}
+        {/* PWA Standalone Fullscreen Meta Tags */}
         <meta name="application-name" content="BusVocab" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -456,6 +499,8 @@ export default function Home() {
             justifyContent: "space-between",
             alignItems: "center",
             borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
+            background: "linear-gradient(135deg, #0d1b2a, #1a2a40)",
+            color: "#fbbf24",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -464,7 +509,6 @@ export default function Home() {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            {/* Install Button (Shown if not yet in standalone full app mode) */}
             {!isStandalone && (
               <button
                 onClick={handleInstallClick}
@@ -708,8 +752,8 @@ export default function Home() {
                     >
                       {showAnswer ? (
                         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                          <div style={{ fontSize: "1.15rem", fontWeight: "800", color: "#f8fafc" }}>
-                            🇨🇿 {currentWord.czechTranslation}
+                          <div style={{ fontSize: "1.15rem", fontWeight: "800", color: "#38bdf8" }}>
+                            {currentWord.czechTranslation}
                           </div>
 
                           {currentWord.collocations && currentWord.collocations.length > 0 && (
@@ -774,18 +818,18 @@ export default function Home() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "10px" }}>
                 <button
                   disabled={!currentWord || isLoading}
-                  onClick={handleRepeat}
+                  onClick={(e)=>{e.stopPropagation(); handleRepeat();}}
                   className="btn-repeat"
-                  style={{ padding: "13px", fontSize: "0.88rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
+                  style={{ padding: "13px", fontSize: "0.88rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", background: "linear-gradient(135deg, #f59e0b, #d97706)", color: "#fff" }}
                 >
                   <span>👈</span>
                   <span>🔄 Zopakovat</span>
                 </button>
                 <button
                   disabled={!currentWord || isLoading}
-                  onClick={handleKnown}
+                  onClick={(e)=>{e.stopPropagation(); handleKnown();}}
                   className="btn-know"
-                  style={{ padding: "13px", fontSize: "0.88rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
+                  style={{ padding: "13px", fontSize: "0.88rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", background: "linear-gradient(135deg, #10b981, #059669)", color: "#fff" }}
                 >
                   <span>✅ Umím to</span>
                   <span>👉</span>
@@ -1022,7 +1066,82 @@ export default function Home() {
           </button>
         </nav>
 
-        {/* In-App Install Guide Modal (for iOS / desktop) */}
+        {/* Celebratory Daily Streak Modal with Fanfare + Confetti */}
+        {showCelebration && (
+          <div
+            onClick={() => setShowCelebration(false)}
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: "rgba(0, 0, 0, 0.82)",
+              backdropFilter: "blur(12px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "20px",
+              zIndex: 200,
+              animation: "fadeIn 0.3s ease",
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="glass-panel"
+              style={{
+                maxWidth: "360px",
+                width: "100%",
+                padding: "28px 20px",
+                textAlign: "center",
+                background: "linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(18, 24, 38, 0.95))",
+                border: "2px solid rgba(245, 158, 11, 0.6)",
+                boxShadow: "0 0 50px rgba(245, 158, 11, 0.4)",
+                position: "relative",
+                overflow: "hidden",
+              }}
+            >
+              {/* Confetti particles */}
+              <div style={{ position: "absolute", top: "10px", left: "15px", fontSize: "1.4rem" }}>🎉</div>
+              <div style={{ position: "absolute", top: "15px", right: "20px", fontSize: "1.4rem" }}>✨</div>
+              <div style={{ position: "absolute", bottom: "20px", left: "20px", fontSize: "1.2rem" }}>🎊</div>
+              <div style={{ position: "absolute", bottom: "25px", right: "15px", fontSize: "1.2rem" }}>⭐</div>
+
+              <div style={{ fontSize: "3.5rem", marginBottom: "4px", filter: "drop-shadow(0 0 15px rgba(245, 158, 11, 0.6))" }}>
+                🔥
+              </div>
+
+              <h2 style={{ fontSize: "1.6rem", fontWeight: "900", color: "#fbbf24", marginBottom: "6px", letterSpacing: "-0.02em" }}>
+                DENNÍ STREAK SPLNĚN!
+              </h2>
+
+              <div style={{ fontSize: "1.1rem", fontWeight: "800", color: "#ffffff", marginBottom: "10px" }}>
+                Tvůj streak je teď <span style={{ color: "#fbbf24", fontSize: "1.3rem" }}>{streak} {streak === 1 ? "den" : streak < 5 ? "dny" : "dní"}</span> v řadě!
+              </div>
+
+              <p style={{ fontSize: "0.85rem", color: "#cbd5e1", lineHeight: "1.5", marginBottom: "22px" }}>
+                Skvělá práce v autobuse! 🚍 Dnešní cíl {dailyTarget} slovíček máš úspěšně v kapse.
+              </p>
+
+              <button
+                onClick={() => setShowCelebration(false)}
+                className="btn-primary"
+                style={{
+                  width: "100%",
+                  padding: "13px",
+                  fontSize: "0.95rem",
+                  fontWeight: "800",
+                  background: "linear-gradient(135deg, #f59e0b, #d97706)",
+                  boxShadow: "0 4px 20px rgba(245, 158, 11, 0.4)",
+                }}
+              >
+                Paráda, pokračovat! 🚀
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* In-App Install Guide Modal */}
         {showInstallModal && (
           <div
             onClick={() => setShowInstallModal(false)}
