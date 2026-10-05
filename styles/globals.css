@@ -880,3 +880,12 @@ html[data-theme="light"] .review-back-example-cz {
 html[data-theme="light"] .btn-repeat {
   color: #ffffff !important;
 }
+
+/* Front‑side large English word */
+.review-front-word {
+  font-size: clamp(2.5rem, 9vw, 4rem);
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: #38bdf8;
+}
