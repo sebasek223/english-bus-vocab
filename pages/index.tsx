@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from "react";
 import Head from "next/head";
 import { VocabWord } from "./api/generateWords";
 
-type TabType = "vocab" | "streak" | "progress";
+type TabType = "vocab" | "streak" | "progress" | "settings";
 
 export interface SRSRecord {
   text: string;
@@ -91,6 +91,14 @@ export default function Home() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
+  const [hapticsEnabled, setHapticsEnabled] = useState(false);
+  const [supportsVibration, setSupportsVibration] = useState(false);
+  const [dailyReminderEnabled, setDailyReminderEnabled] = useState(false);
+  const [dailyReminderTime, setDailyReminderTime] = useState("20:00");
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default");
+  const [supportsNotifications, setSupportsNotifications] = useState(false);
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [flipMode, setFlipMode] = useState<"tap" | "hold">("tap");
 
   // Touch / Drag Swipe state
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -98,6 +106,8 @@ export default function Home() {
   const [isFlyingOut, setIsFlyingOut] = useState<"left" | "right" | null>(null);
   const touchStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const swipeDirectionRef = useRef<"undecided" | "horizontal" | "vertical">("undecided");
+  const holdTimerRef = useRef<number | null>(null);
+  const holdTriggeredRef = useRef(false);
 
   // Load persistence and PWA detection
   useEffect(() => {
@@ -106,6 +116,23 @@ export default function Home() {
         window.matchMedia("(display-mode: standalone)").matches ||
         (window.navigator as any).standalone === true;
       setIsStandalone(isStandaloneMode);
+      const savedTheme = localStorage.getItem("vocab_theme") === "light" ? "light" : "dark";
+      document.documentElement.dataset.theme = savedTheme;
+      document.documentElement.style.colorScheme = savedTheme;
+      setTheme(savedTheme);
+      setFlipMode(localStorage.getItem("vocab_card_flip_mode") === "hold" ? "hold" : "tap");
+      setSupportsVibration(typeof navigator.vibrate === "function");
+      setHapticsEnabled(localStorage.getItem("vocab_haptics_enabled") === "true");
+      setDailyReminderTime(localStorage.getItem("vocab_daily_reminder_time") || "20:00");
+
+      const canNotify = "Notification" in window;
+      setSupportsNotifications(canNotify);
+      if (canNotify) {
+        setNotificationPermission(Notification.permission);
+        setDailyReminderEnabled(
+          localStorage.getItem("vocab_daily_reminder_enabled") === "true" && Notification.permission === "granted"
+        );
+      }
 
       window.addEventListener("beforeinstallprompt", (e: any) => {
         e.preventDefault();
@@ -154,6 +181,71 @@ export default function Home() {
       fetchSmartWordsQueue(savedSRS);
     }
   }, []);
+
+  useEffect(() => {
+    if (!dailyReminderEnabled || notificationPermission !== "granted") return;
+
+    let timer: number;
+    const scheduleNextReminder = () => {
+      const [hours, minutes] = dailyReminderTime.split(":").map(Number);
+      const now = new Date();
+      const nextReminder = new Date(now);
+      nextReminder.setHours(hours, minutes, 0, 0);
+      if (nextReminder <= now) nextReminder.setDate(nextReminder.getDate() + 1);
+
+      timer = window.setTimeout(() => {
+        if (Notification.permission === "granted") {
+          new Notification("Čas na angličtinu", {
+            body: "Dej si pár minut procvičování slovíček.",
+            icon: "/icon.svg",
+          });
+        }
+        scheduleNextReminder();
+      }, nextReminder.getTime() - now.getTime());
+    };
+
+    scheduleNextReminder();
+    return () => window.clearTimeout(timer);
+  }, [dailyReminderEnabled, dailyReminderTime, notificationPermission]);
+
+  const handleHapticsChange = (enabled: boolean) => {
+    setHapticsEnabled(enabled);
+    localStorage.setItem("vocab_haptics_enabled", String(enabled));
+  };
+
+  const handleReminderToggle = async (enabled: boolean) => {
+    if (!enabled) {
+      setDailyReminderEnabled(false);
+      localStorage.setItem("vocab_daily_reminder_enabled", "false");
+      return;
+    }
+
+    if (!supportsNotifications) return;
+    const permission = Notification.permission === "granted"
+      ? "granted"
+      : await Notification.requestPermission();
+    setNotificationPermission(permission);
+    const isEnabled = permission === "granted";
+    setDailyReminderEnabled(isEnabled);
+    localStorage.setItem("vocab_daily_reminder_enabled", String(isEnabled));
+  };
+
+  const handleReminderTimeChange = (time: string) => {
+    setDailyReminderTime(time);
+    localStorage.setItem("vocab_daily_reminder_time", time);
+  };
+
+  const handleThemeChange = (nextTheme: "dark" | "light") => {
+    setTheme(nextTheme);
+    localStorage.setItem("vocab_theme", nextTheme);
+    document.documentElement.dataset.theme = nextTheme;
+    document.documentElement.style.colorScheme = nextTheme;
+  };
+
+  const handleFlipModeChange = (nextMode: "tap" | "hold") => {
+    setFlipMode(nextMode);
+    localStorage.setItem("vocab_card_flip_mode", nextMode);
+  };
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
@@ -230,6 +322,7 @@ export default function Home() {
   // SRS Update: Move up in memory stages + Trigger Fanfare if daily target reached
   const handleKnown = () => {
     if (!currentWord || isFlyingOut) return;
+    if (hapticsEnabled) navigator.vibrate?.(18);
     setIsFlyingOut("right");
 
     setTimeout(() => {
@@ -285,6 +378,7 @@ export default function Home() {
 
   const handleRepeat = () => {
     if (!currentWord || isFlyingOut) return;
+    if (hapticsEnabled) navigator.vibrate?.(35);
     setIsFlyingOut("left");
 
     setTimeout(() => {
@@ -333,21 +427,35 @@ export default function Home() {
   };
 
   // Touch / Drag Gesture Handlers
-  const handleTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
+  const handleTouchStart = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!currentWord || isFlyingOut) return;
-    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
-    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
-    touchStartRef.current = { x: clientX, y: clientY };
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    touchStartRef.current = { x: e.clientX, y: e.clientY };
     swipeDirectionRef.current = "undecided";
+    holdTriggeredRef.current = false;
     setIsDragging(true);
+
+    if (flipMode === "hold") {
+      holdTimerRef.current = window.setTimeout(() => {
+        if (swipeDirectionRef.current !== "undecided") return;
+        holdTriggeredRef.current = true;
+        setIsDragging(false);
+        setShowAnswer((previous) => !previous);
+      }, 500);
+    }
+
+    if (e.pointerType === "mouse") e.currentTarget.setPointerCapture(e.pointerId);
   };
 
-  const handleTouchMove = (e: React.TouchEvent | React.MouseEvent) => {
+  const handleTouchMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDragging || !currentWord) return;
-    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
-    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
-    const deltaX = clientX - touchStartRef.current.x;
-    const deltaY = clientY - touchStartRef.current.y;
+    const deltaX = e.clientX - touchStartRef.current.x;
+    const deltaY = e.clientY - touchStartRef.current.y;
+
+    if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) >= 8 && holdTimerRef.current !== null) {
+      window.clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
 
     if (swipeDirectionRef.current === "undecided") {
       if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) < 8) return;
@@ -364,6 +472,15 @@ export default function Home() {
   };
 
   const handleTouchEnd = () => {
+    if (holdTimerRef.current !== null) {
+      window.clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    if (holdTriggeredRef.current) {
+      holdTriggeredRef.current = false;
+      setIsDragging(false);
+      return;
+    }
     if (!isDragging || !currentWord) return;
     setIsDragging(false);
 
@@ -372,11 +489,21 @@ export default function Home() {
       handleKnown();
     } else if (dragOffset.x < -threshold) {
       handleRepeat();
-    } else if (Math.abs(dragOffset.x) < 8 && Math.abs(dragOffset.y) < 8) {
+    } else if (flipMode === "tap" && Math.abs(dragOffset.x) < 8 && Math.abs(dragOffset.y) < 8) {
       setShowAnswer((prev) => !prev);
     } else {
       setDragOffset({ x: 0, y: 0 });
     }
+  };
+
+  const handleTouchCancel = () => {
+    if (holdTimerRef.current !== null) {
+      window.clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    holdTriggeredRef.current = false;
+    setIsDragging(false);
+    setDragOffset({ x: 0, y: 0 });
   };
 
   // Generate 7-day chart data
@@ -493,7 +620,7 @@ export default function Home() {
         <title>BusVocab AI – English Flashcards</title>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover" />
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#090d16" />
+        <meta name="theme-color" content={theme === "light" ? "#f4f7fb" : "#090d16"} />
 
         {/* PWA Standalone Fullscreen Meta Tags */}
         <meta name="application-name" content="BusVocab" />
@@ -504,7 +631,7 @@ export default function Home() {
         <link rel="apple-touch-icon" href="/icon.svg" />
       </Head>
 
-      <div style={{ display: "flex", flexDirection: "column", height: "100dvh", maxWidth: "480px", margin: "0 auto", width: "100%" }}>
+      <div className="app-shell" data-theme={theme} style={{ display: "flex", flexDirection: "column", height: "100dvh", maxWidth: "480px", margin: "0 auto", width: "100%" }}>
         {/* Top Minimal Header */}
         <header
           style={{
@@ -523,27 +650,6 @@ export default function Home() {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            {!isStandalone && (
-              <button
-                onClick={handleInstallClick}
-                style={{
-                  background: "rgba(99, 102, 241, 0.15)",
-                  border: "1px solid rgba(99, 102, 241, 0.35)",
-                  color: "#a5b4fc",
-                  padding: "4px 9px",
-                  borderRadius: "20px",
-                  fontSize: "0.74rem",
-                  fontWeight: "700",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                }}
-              >
-                📲 Nainstalovat
-              </button>
-            )}
-
             <div
               onClick={() => setCurrentTab("streak")}
               style={{
@@ -562,6 +668,23 @@ export default function Home() {
             >
               🔥 {streak}
             </div>
+            <button
+              onClick={() => setCurrentTab(currentTab === "settings" ? "vocab" : "settings")}
+              aria-label="Nastavení"
+              title="Nastavení"
+              style={{
+                width: "36px",
+                height: "36px",
+                borderRadius: "10px",
+                border: "1px solid rgba(255, 255, 255, 0.12)",
+                background: currentTab === "settings" ? "rgba(99, 102, 241, 0.2)" : "rgba(255, 255, 255, 0.06)",
+                color: currentTab === "settings" ? "#c7d2fe" : "#cbd5e1",
+                fontSize: "1.15rem",
+                cursor: "pointer",
+              }}
+            >
+              ⚙
+            </button>
           </div>
         </header>
 
@@ -624,12 +747,10 @@ export default function Home() {
                   </div>
                 ) : (
                   <div
-                    onTouchStart={handleTouchStart}
-                    onTouchMove={handleTouchMove}
-                    onTouchEnd={handleTouchEnd}
-                    onMouseDown={handleTouchStart}
-                    onMouseMove={handleTouchMove}
-                    onMouseUp={handleTouchEnd}
+                    onPointerDown={handleTouchStart}
+                    onPointerMove={handleTouchMove}
+                    onPointerUp={handleTouchEnd}
+                    onPointerCancel={handleTouchCancel}
                     className="glass-panel"
                     style={{
                       width: "100%",
@@ -815,10 +936,7 @@ export default function Home() {
                       ) : (
                         <div style={{ textAlign: "center", padding: "8px 0" }}>
                           <div style={{ fontSize: "0.82rem", color: "#64748b", fontWeight: "600" }}>
-                            👆 Klepnutím otočíš kartu
-                          </div>
-                          <div style={{ fontSize: "0.7rem", color: "#475569", marginTop: "2px" }}>
-                            nebo potáhni: 👈 Zopakovat | Umím 👉
+                            {flipMode === "tap" ? "👆 Klepnutím otočíš kartu" : "👆 Podržením na 0,5 s otočíš kartu"}
                           </div>
                         </div>
                       )}
@@ -839,8 +957,8 @@ export default function Home() {
                   className="btn-repeat"
                   style={{ padding: "13px", fontSize: "0.88rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", background: "linear-gradient(135deg, #f59e0b, #d97706)", color: "#fff" }}
                 >
-                  <span>👈</span>
-                  <span>🔄 Zopakovat</span>
+                  <span>👈 Zopakovat</span>
+                  <span>🔄 </span>
                 </button>
                 <button
                   disabled={!currentWord || isLoading}
@@ -852,6 +970,121 @@ export default function Home() {
                   <span>👉</span>
                 </button>
               </div>
+            </div>
+          )}
+
+          {currentTab === "settings" && (
+            <div className="settings-view no-scrollbar">
+              <div className="settings-heading">
+                <div>
+                  <h1>Nastavení</h1>
+                  <p>Uprav si aplikaci podle sebe.</p>
+                </div>
+              </div>
+
+              <section className="settings-group" aria-labelledby="settings-app-title">
+                <h2 className="settings-group-title" id="settings-app-title">Aplikace</h2>
+                <div className="settings-row">
+                  <div className="settings-copy">
+                    <div className="settings-label">Instalace aplikace</div>
+                    <p className="settings-description">
+                      {isStandalone ? "BusVocab už máš nainstalovaný." : "Přidej si BusVocab na plochu zařízení."}
+                    </p>
+                  </div>
+                  {isStandalone ? (
+                    <span className="settings-status">Nainstalováno</span>
+                  ) : (
+                    <button className="btn-primary settings-install-button" onClick={handleInstallClick}>
+                      📲 Nainstalovat
+                    </button>
+                  )}
+                </div>
+              </section>
+
+              <section className="settings-group" aria-labelledby="settings-appearance-title">
+                <h2 className="settings-group-title" id="settings-appearance-title">Vzhled a ovládání</h2>
+                <div className="settings-row">
+                  <div className="settings-copy">
+                    <div className="settings-label">Barevný režim</div>
+                    <p className="settings-description">Vyber světlý nebo tmavý vzhled.</p>
+                  </div>
+                  <div className="settings-segmented" role="group" aria-label="Barevný režim">
+                    <button type="button" aria-pressed={theme === "light"} onClick={() => handleThemeChange("light")}>Světlý</button>
+                    <button type="button" aria-pressed={theme === "dark"} onClick={() => handleThemeChange("dark")}>Tmavý</button>
+                  </div>
+                </div>
+                <div className="settings-row">
+                  <div className="settings-copy">
+                    <div className="settings-label">Otočení kartičky</div>
+                    <p className="settings-description">
+                      {flipMode === "tap" ? "Otočí se krátkým klepnutím." : "Otočí se podržením na 0,5 sekundy."}
+                    </p>
+                  </div>
+                  <div className="settings-segmented" role="group" aria-label="Způsob otočení kartičky">
+                    <button type="button" aria-pressed={flipMode === "tap"} onClick={() => handleFlipModeChange("tap")}>Klepnutí</button>
+                    <button type="button" aria-pressed={flipMode === "hold"} onClick={() => handleFlipModeChange("hold")}>Podržení</button>
+                  </div>
+                </div>
+              </section>
+
+              <section className="settings-group" aria-labelledby="settings-practice-title">
+                <h2 className="settings-group-title" id="settings-practice-title">Procvičování</h2>
+                <div className="settings-row">
+                  <div className="settings-copy">
+                    <label className="settings-label" htmlFor="haptics-toggle">Haptická odezva</label>
+                    <p className="settings-description">
+                      {supportsVibration ? "Krátké zavibrování při hodnocení kartičky." : "Toto zařízení vibrace nepodporuje."}
+                    </p>
+                  </div>
+                  <input
+                    className="settings-checkbox"
+                    id="haptics-toggle"
+                    type="checkbox"
+                    checked={hapticsEnabled}
+                    disabled={!supportsVibration}
+                    onChange={(event) => handleHapticsChange(event.target.checked)}
+                  />
+                </div>
+              </section>
+
+              <section className="settings-group" aria-labelledby="settings-reminders-title">
+                <h2 className="settings-group-title" id="settings-reminders-title">Připomínky</h2>
+                <div className="settings-row">
+                  <div className="settings-copy">
+                    <label className="settings-label" htmlFor="daily-reminder-toggle">Denní připomínka</label>
+                    <p className="settings-description">Upozornění na krátké procvičování slovíček.</p>
+                  </div>
+                  <input
+                    className="settings-checkbox"
+                    id="daily-reminder-toggle"
+                    type="checkbox"
+                    checked={dailyReminderEnabled}
+                    disabled={!supportsNotifications}
+                    onChange={(event) => void handleReminderToggle(event.target.checked)}
+                  />
+                </div>
+
+                {dailyReminderEnabled && (
+                  <div className="settings-row">
+                    <label className="settings-label" htmlFor="daily-reminder-time">Čas upozornění</label>
+                    <input
+                      className="settings-time-input"
+                      id="daily-reminder-time"
+                      type="time"
+                      value={dailyReminderTime}
+                      onChange={(event) => handleReminderTimeChange(event.target.value)}
+                    />
+                  </div>
+                )}
+
+                <p className="settings-note">
+                  {!supportsNotifications
+                    ? "Notifikace tento prohlížeč nepodporuje."
+                    : notificationPermission === "denied"
+                    ? "Notifikace jsou zablokované v nastavení prohlížeče."
+                    : "Připomínka se zobrazí, když aplikace zůstane otevřená. Pro upozornění po zavření bude potřeba push služba."}
+                </p>
+              </section>
             </div>
           )}
 
