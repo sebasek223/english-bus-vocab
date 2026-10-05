@@ -968,7 +968,7 @@ export default function Home() {
                           }
                         }}
                       >
-                        <span className="review-step-label">ANGLICKY → ČESKY</span>
+                        <span className="review-step-label"></span>
                         <h2 className="review-back-word">{currentPrompt}</h2>
                         {currentWord.phonetic && (
                           <div className="review-phonetic">{currentWord.phonetic}</div>
