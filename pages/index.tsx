@@ -342,14 +342,9 @@ export default function Home() {
   };
 
   const currentWord = words[currentIndex];
-  const currentDirection: ReviewDirection = currentWord?.direction || "en-to-cz";
   const currentReviewStage = currentWord?.reviewStage ?? 0;
-  const currentPrompt = currentDirection === "cz-to-en"
-    ? currentWord?.czechTranslation
-    : currentWord?.text;
-  const currentAnswer = currentDirection === "cz-to-en"
-    ? currentWord?.text
-    : currentWord?.czechTranslation;
+  const currentPrompt = currentWord?.text;
+  const currentAnswer = currentWord?.czechTranslation;
 
   const handleFlip = () => {
     if (!currentWord || isFlyingOut) return;
@@ -415,7 +410,7 @@ export default function Home() {
         definition: currentWord.definition,
         collocations: currentWord.collocations,
         examples: currentWord.examples,
-        direction: currentDirection,
+        direction: "en-to-cz",
         stage: nextStage,
         nextReviewDate,
         lastReviewDate: today,
@@ -465,7 +460,7 @@ export default function Home() {
         definition: currentWord.definition,
         collocations: currentWord.collocations,
         examples: currentWord.examples,
-        direction: currentDirection,
+        direction: "en-to-cz",
         stage: resetStage,
         nextReviewDate,
         lastReviewDate: today,
@@ -968,11 +963,9 @@ export default function Home() {
                           }
                         }}
                       >
-                        <span className="review-step-label">
-                          {currentDirection === "cz-to-en" ? "ČESKY → ANGLICKY" : "ANGLICKY → ČESKY"}
-                        </span>
+                        <span className="review-step-label">ANGLICKY → ČESKY</span>
                         <h2 className="review-back-word">{currentPrompt}</h2>
-                        {currentDirection === "en-to-cz" && currentWord.phonetic && (
+                        {currentWord.phonetic && (
                           <div className="review-phonetic">{currentWord.phonetic}</div>
                         )}
                         <span className="review-flip-hint">
@@ -1001,9 +994,6 @@ export default function Home() {
                     >
                       <span className="review-step-label">ODPOVĚĎ</span>
                       <h2 className="review-back-word">{currentAnswer}</h2>
-                      {currentDirection === "cz-to-en" && currentWord.phonetic && (
-                        <div className="review-phonetic">{currentWord.phonetic}</div>
-                      )}
                       {currentWord.definition && <div className="review-back-definition">{currentWord.definition}</div>}
                       {currentWord.collocations?.length ? (
                         <div className="review-back-collocations">
