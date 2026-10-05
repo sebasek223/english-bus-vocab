@@ -120,11 +120,15 @@ html, body {
 /* ── Back face layout ── */
 .review-card-back {
   transform: rotateY(180deg);
-  justify-content: flex-start !important;
-  align-items: center !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* vertically center all content */
+  align-items: center;   /* horizontally center */
   text-align: center;
+  height: 100%;
+  width: 100%;
   gap: 0;
-  padding: clamp(12px, 3.5vw, 20px) clamp(14px, 4vw, 20px) !important;
+  padding: clamp(16px, 4vw, 24px) clamp(18px, 5vw, 24px) !important;
   overflow-y: auto;
 }
 
@@ -137,7 +141,14 @@ html, body {
   margin-bottom: clamp(8px, 2vw, 14px);
 }
 
-/* English word – prominent, colored */
+.review-back-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: clamp(6px, 1.5vw, 10px);
+}
 .review-back-en-word {
   font-size: clamp(1.55rem, 6.5vw, 2.4rem);
   font-weight: 900;
