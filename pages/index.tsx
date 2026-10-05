@@ -97,6 +97,7 @@ export default function Home() {
   const [isDragging, setIsDragging] = useState(false);
   const [isFlyingOut, setIsFlyingOut] = useState<"left" | "right" | null>(null);
   const touchStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const swipeDirectionRef = useRef<"undecided" | "horizontal" | "vertical">("undecided");
 
   // Load persistence and PWA detection
   useEffect(() => {
@@ -337,6 +338,7 @@ export default function Home() {
     const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
     const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
     touchStartRef.current = { x: clientX, y: clientY };
+    swipeDirectionRef.current = "undecided";
     setIsDragging(true);
   };
 
@@ -346,7 +348,19 @@ export default function Home() {
     const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
     const deltaX = clientX - touchStartRef.current.x;
     const deltaY = clientY - touchStartRef.current.y;
-    setDragOffset({ x: deltaX, y: deltaY });
+
+    if (swipeDirectionRef.current === "undecided") {
+      if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) < 8) return;
+      swipeDirectionRef.current = Math.abs(deltaX) > Math.abs(deltaY) ? "horizontal" : "vertical";
+    }
+
+    if (swipeDirectionRef.current === "vertical") {
+      setIsDragging(false);
+      setDragOffset({ x: 0, y: 0 });
+      return;
+    }
+
+    setDragOffset({ x: deltaX, y: 0 });
   };
 
   const handleTouchEnd = () => {
@@ -555,7 +569,7 @@ export default function Home() {
         <main style={{ flex: 1, padding: "14px 16px", display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
           {/* TAB 1: SLOVÍČKA (SRS Flashcard View) */}
           {currentTab === "vocab" && (
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: 0 }}>
               {/* Top Sub-Header */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
                 <div
@@ -590,6 +604,7 @@ export default function Home() {
                   justifyContent: "center",
                   position: "relative",
                   touchAction: "pan-y",
+                  minHeight: 0,
                 }}
               >
                 {isLoading ? (
@@ -618,12 +633,13 @@ export default function Home() {
                     className="glass-panel"
                     style={{
                       width: "100%",
+                      height: "100%",
                       padding: "18px 16px",
                       display: "flex",
                       flexDirection: "column",
                       justifyContent: "space-between",
-                      minHeight: "290px",
-                      maxHeight: "390px",
+                      minHeight: "min(290px, 100%)",
+                      maxHeight: "min(560px, 100%)",
                       border: showAnswer ? "1px solid rgba(99, 102, 241, 0.4)" : "1px solid rgba(255, 255, 255, 0.1)",
                       cursor: "grab",
                       transform: cardTransform,
@@ -745,8 +761,9 @@ export default function Home() {
                         border: showAnswer ? "1px solid rgba(99, 102, 241, 0.3)" : "1px dashed rgba(255, 255, 255, 0.12)",
                         padding: "10px 12px",
                         borderRadius: "12px",
-                        maxHeight: "180px",
+                        maxHeight: "min(320px, 40dvh)",
                         overflowY: "auto",
+                        overscrollBehavior: "contain",
                       }}
                       className="no-scrollbar"
                     >
