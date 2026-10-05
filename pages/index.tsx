@@ -48,15 +48,32 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
+  // Install PWA state
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallModal, setShowInstallModal] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
+
   // Touch / Drag Swipe state
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [isFlyingOut, setIsFlyingOut] = useState<"left" | "right" | null>(null);
   const touchStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  // Load persistence
+  // Load persistence and PWA detection
   useEffect(() => {
     if (typeof window !== "undefined") {
+      // Check if already running standalone (installed PWA)
+      const isStandaloneMode =
+        window.matchMedia("(display-mode: standalone)").matches ||
+        (window.navigator as any).standalone === true;
+      setIsStandalone(isStandaloneMode);
+
+      // Listen for Android beforeinstallprompt
+      window.addEventListener("beforeinstallprompt", (e: any) => {
+        e.preventDefault();
+        setDeferredPrompt(e);
+      });
+
       const today = new Date().toISOString().split("T")[0];
       const savedDate = localStorage.getItem("vocab_last_date");
       const savedStreak = parseInt(localStorage.getItem("vocab_streak") || "1", 10);
@@ -100,7 +117,19 @@ export default function Home() {
     }
   }, []);
 
-  // Smart SRS Queue: Mixes words that are DUE FOR REVIEW today + Fresh AI words
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === "accepted") {
+        setDeferredPrompt(null);
+      }
+    } else {
+      setShowInstallModal(true);
+    }
+  };
+
+  // Smart SRS Queue
   const fetchSmartWordsQueue = async (currentSRS = srsRecords) => {
     setIsLoading(true);
     setShowAnswer(false);
@@ -108,11 +137,7 @@ export default function Home() {
     setIsFlyingOut(null);
 
     const today = new Date().toISOString().split("T")[0];
-
-    // Find words due for spaced repetition review today or earlier
-    const dueWords: SRSRecord[] = currentSRS.filter(
-      (r) => r.nextReviewDate <= today
-    );
+    const dueWords: SRSRecord[] = currentSRS.filter((r) => r.nextReviewDate <= today);
 
     const dueVocabWords: VocabWord[] = dueWords.slice(0, 3).map((r) => ({
       id: `srs_${r.text}`,
@@ -164,7 +189,6 @@ export default function Home() {
     }
   };
 
-  // SRS Update: Move up in memory stages (Ebbinghaus Forgetting Curve)
   const handleKnown = () => {
     if (!currentWord || isFlyingOut) return;
     setIsFlyingOut("right");
@@ -175,12 +199,10 @@ export default function Home() {
       setLearnedToday(newLearned);
       localStorage.setItem("vocab_learned_today", newLearned.toString());
 
-      // Update daily history
       const updatedHistory = { ...weeklyHistory, [today]: newLearned };
       setWeeklyHistory(updatedHistory);
       localStorage.setItem("vocab_daily_counts", JSON.stringify(updatedHistory));
 
-      // Calculate next SRS interval
       const existingRecord = srsRecords.find((r) => r.text.toLowerCase() === currentWord.text.toLowerCase());
       const nextStage = existingRecord ? Math.min(5, existingRecord.stage + 1) : 1;
       const intervalDays = SRS_INTERVALS_DAYS[nextStage - 1] || 1;
@@ -217,7 +239,6 @@ export default function Home() {
     }, 220);
   };
 
-  // SRS Reset: If user forgets, move back to Stage 0/1 (repeat soon)
   const handleRepeat = () => {
     if (!currentWord || isFlyingOut) return;
     setIsFlyingOut("left");
@@ -226,7 +247,7 @@ export default function Home() {
       const today = new Date().toISOString().split("T")[0];
       const existingRecord = srsRecords.find((r) => r.text.toLowerCase() === currentWord.text.toLowerCase());
       const resetStage = 0;
-      const nextReviewDate = today; // Review today / tomorrow
+      const nextReviewDate = today;
 
       const resetRecord: SRSRecord = {
         text: currentWord.text,
@@ -249,7 +270,6 @@ export default function Home() {
       setSrsRecords(updatedSRSList);
       localStorage.setItem("vocab_srs_records_v1", JSON.stringify(updatedSRSList));
 
-      // Re-queue word at end of current lesson
       setWords((prev) => [...prev.filter((_, i) => i !== currentIndex), currentWord]);
       nextCard(false);
     }, 220);
@@ -372,7 +392,6 @@ export default function Home() {
   const mediumTermCount = srsRecords.filter((r) => r.stage >= 3 && r.stage <= 4).length;
   const masteredCount = srsRecords.filter((r) => r.stage >= 5).length;
 
-  // Active word SRS stage info
   const activeWordRecord = currentWord
     ? srsRecords.find((r) => r.text.toLowerCase() === currentWord.text.toLowerCase())
     : null;
@@ -414,10 +433,18 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>BusVocab AI – Spaced Repetition English</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+        <title>BusVocab AI – English Flashcards</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover" />
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#090d16" />
+
+        {/* PWA Standalone Fullscreen Meta Tags (removes URL bar on mobile) */}
+        <meta name="application-name" content="BusVocab" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="BusVocab" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <link rel="apple-touch-icon" href="/icon.svg" />
       </Head>
 
       <div style={{ display: "flex", flexDirection: "column", height: "100dvh", maxWidth: "480px", margin: "0 auto", width: "100%" }}>
@@ -434,26 +461,49 @@ export default function Home() {
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <span style={{ fontSize: "1.2rem" }}>🚍</span>
             <span style={{ fontWeight: "800", fontSize: "1.05rem", letterSpacing: "-0.02em" }}>BusVocab</span>
-            <span style={{ fontSize: "0.68rem", background: "rgba(99,102,241,0.2)", color: "#a5b4fc", padding: "2px 6px", borderRadius: "6px", fontWeight: "700" }}>SRS AI</span>
           </div>
 
-          <div
-            onClick={() => setCurrentTab("streak")}
-            style={{
-              background: "rgba(245, 158, 11, 0.15)",
-              border: "1px solid rgba(245, 158, 11, 0.3)",
-              color: "#fbbf24",
-              padding: "4px 12px",
-              borderRadius: "20px",
-              fontSize: "0.82rem",
-              fontWeight: "700",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-            }}
-          >
-            🔥 {streak} {streak === 1 ? "den" : streak < 5 ? "dny" : "dní"}
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            {/* Install Button (Shown if not yet in standalone full app mode) */}
+            {!isStandalone && (
+              <button
+                onClick={handleInstallClick}
+                style={{
+                  background: "rgba(99, 102, 241, 0.15)",
+                  border: "1px solid rgba(99, 102, 241, 0.35)",
+                  color: "#a5b4fc",
+                  padding: "4px 9px",
+                  borderRadius: "20px",
+                  fontSize: "0.74rem",
+                  fontWeight: "700",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                📲 Nainstalovat
+              </button>
+            )}
+
+            <div
+              onClick={() => setCurrentTab("streak")}
+              style={{
+                background: "rgba(245, 158, 11, 0.15)",
+                border: "1px solid rgba(245, 158, 11, 0.3)",
+                color: "#fbbf24",
+                padding: "4px 10px",
+                borderRadius: "20px",
+                fontSize: "0.8rem",
+                fontWeight: "700",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+              }}
+            >
+              🔥 {streak}
+            </div>
           </div>
         </header>
 
@@ -658,12 +708,10 @@ export default function Home() {
                     >
                       {showAnswer ? (
                         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                          {/* Czech Translation */}
                           <div style={{ fontSize: "1.15rem", fontWeight: "800", color: "#f8fafc" }}>
                             🇨🇿 {currentWord.czechTranslation}
                           </div>
 
-                          {/* Collocations */}
                           {currentWord.collocations && currentWord.collocations.length > 0 && (
                             <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "2px" }}>
                               {currentWord.collocations.map((col, idx) => (
@@ -685,7 +733,6 @@ export default function Home() {
                             </div>
                           )}
 
-                          {/* 2 Context Examples */}
                           <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "4px" }}>
                             {currentWord.examples && currentWord.examples.map((ex, idx) => (
                               <div
@@ -817,7 +864,7 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Spaced Repetition / Forgetting Curve Breakdown */}
+              {/* Spaced Repetition Breakdown */}
               <div className="glass-panel" style={{ padding: "12px 14px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -829,7 +876,6 @@ export default function Home() {
                   </span>
                 </div>
 
-                {/* 4 Memory Stages Grid */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "6px", textAlign: "center" }}>
                   <div style={{ background: "rgba(255, 255, 255, 0.04)", padding: "8px 4px", borderRadius: "10px", border: dueTodayCount > 0 ? "1px solid rgba(245, 158, 11, 0.4)" : "1px solid rgba(255, 255, 255, 0.06)" }}>
                     <div style={{ fontSize: "1rem", fontWeight: "800", color: dueTodayCount > 0 ? "#fbbf24" : "#94a3b8" }}>{dueTodayCount}</div>
@@ -975,6 +1021,67 @@ export default function Home() {
             <span>Progres</span>
           </button>
         </nav>
+
+        {/* In-App Install Guide Modal (for iOS / desktop) */}
+        {showInstallModal && (
+          <div
+            onClick={() => setShowInstallModal(false)}
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: "rgba(0, 0, 0, 0.75)",
+              backdropFilter: "blur(8px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "20px",
+              zIndex: 100,
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="glass-panel"
+              style={{
+                maxWidth: "360px",
+                width: "100%",
+                padding: "24px",
+                textAlign: "center",
+                border: "1px solid rgba(99, 102, 241, 0.4)",
+              }}
+            >
+              <div style={{ fontSize: "2.4rem", marginBottom: "8px" }}>📲</div>
+              <h3 style={{ fontSize: "1.15rem", fontWeight: "800", color: "#ffffff", marginBottom: "10px" }}>
+                Jak spustit bez URL řádku
+              </h3>
+              <div style={{ textAlign: "left", fontSize: "0.84rem", color: "#cbd5e1", lineHeight: "1.6", display: "flex", flexDirection: "column", gap: "10px", marginBottom: "18px" }}>
+                <div>
+                  <strong>🍏 Na iPhone (Safari):</strong>
+                  <br />
+                  1. Dole klepni na tlačítko <strong>Sdílet</strong> (čtvereček se šipkou nahoru ⬆️).
+                  <br />
+                  2. Sjeď dolů a vyber <strong>„Přidat na plochu“</strong>.
+                </div>
+                <div>
+                  <strong>🤖 Na Androidu (Chrome):</strong>
+                  <br />
+                  1. Nahoře klepni na <strong>tři tečky ⋮</strong>.
+                  <br />
+                  2. Zvol <strong>„Přidat na plochu“</strong> nebo <strong>„Instalovat aplikaci“</strong>.
+                </div>
+              </div>
+              <button
+                onClick={() => setShowInstallModal(false)}
+                className="btn-primary"
+                style={{ width: "100%", padding: "10px", fontSize: "0.9rem" }}
+              >
+                Rozumím 👍
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
