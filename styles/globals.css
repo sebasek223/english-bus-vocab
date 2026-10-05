@@ -262,6 +262,102 @@ html, body {
   padding-top: 9px;
 }
 
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 10px;
+  color: var(--text-muted);
+  font-size: 0.62rem;
+}
+
+.heatmap-swatch {
+  width: 11px;
+  height: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+
+.cal-day.activity-0,
+.heatmap-swatch.activity-0 {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.cal-day.activity-1,
+.heatmap-swatch.activity-1 {
+  background: rgba(16, 185, 129, 0.2);
+}
+
+.cal-day.activity-2,
+.heatmap-swatch.activity-2 {
+  background: rgba(16, 185, 129, 0.38);
+}
+
+.cal-day.activity-3,
+.heatmap-swatch.activity-3 {
+  background: rgba(16, 185, 129, 0.58);
+}
+
+.cal-day.activity-4,
+.heatmap-swatch.activity-4 {
+  background: rgba(16, 185, 129, 0.82);
+  color: #ffffff;
+}
+
+.cloze-prompt {
+  margin-top: 8px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #cbd5e1;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.typing-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.typing-controls input {
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-main);
+  font-size: 0.9rem;
+  user-select: text;
+}
+
+.typing-controls input:focus {
+  outline: 2px solid var(--primary-light);
+  outline-offset: 1px;
+}
+
+.typing-controls button {
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 10px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.typing-controls button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.typing-feedback {
+  grid-column: 1 / -1;
+  color: var(--accent-red);
+  font-size: 0.78rem;
+}
+
 .settings-segmented {
   display: flex;
   flex: 0 0 auto;
@@ -421,6 +517,43 @@ html[data-theme="light"] .settings-time-input {
   background: #ffffff;
   color: #172033;
   color-scheme: light;
+}
+
+html[data-theme="light"] .cal-day.activity-0,
+html[data-theme="light"] .heatmap-swatch.activity-0 {
+  background: #f1f5f9;
+}
+
+html[data-theme="light"] .cal-day.activity-1,
+html[data-theme="light"] .heatmap-swatch.activity-1 {
+  background: #d1fae5;
+}
+
+html[data-theme="light"] .cal-day.activity-2,
+html[data-theme="light"] .heatmap-swatch.activity-2 {
+  background: #a7f3d0;
+}
+
+html[data-theme="light"] .cal-day.activity-3,
+html[data-theme="light"] .heatmap-swatch.activity-3 {
+  background: #6ee7b7;
+}
+
+html[data-theme="light"] .cal-day.activity-4,
+html[data-theme="light"] .heatmap-swatch.activity-4 {
+  background: #059669;
+  color: #ffffff;
+}
+
+html[data-theme="light"] .cloze-prompt {
+  background: #edf2f7;
+  color: #334155;
+}
+
+html[data-theme="light"] .typing-controls input {
+  border-color: rgba(15, 23, 42, 0.18);
+  background: #ffffff;
+  color: #172033;
 }
 
 html[data-theme="light"] .tab-btn {

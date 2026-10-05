@@ -1,6 +1,7 @@
 // pages/api/generateWords.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import type { PracticeMode, ReviewDirection } from "../../lib/learning";
 
 export interface ExamplePair {
   en: string;
@@ -17,6 +18,8 @@ export interface VocabWord {
   examples: ExamplePair[]; // 2 natural context sentences
   level: "B2" | "C1";
   theme?: string;
+  direction?: ReviewDirection;
+  practiceMode?: PracticeMode;
 }
 
 const FALLBACK_WORDS: VocabWord[] = [
@@ -155,7 +158,7 @@ For each word, return a JSON array of objects with the following keys:
 - "czechTranslation": Natural Czech translation/meaning
 - "definition": Clear, simple English definition
 - "collocations": Array of 2 to 3 common collocations / natural word pairs in English (e.g. ["build resilience", "emotional resilience"])
-- "examples": Array of exactly 2 practical contextual sentences. Each item must have:
+- "examples": Array of exactly 2 practical contextual sentences. At least one English sentence must contain the exact vocabulary word or phrase. Each item must have:
     - "en": English example sentence
     - "cz": Czech translation of that sentence
 - "level": Either "B2" or "C1"

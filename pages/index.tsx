@@ -1,7 +1,16 @@
 // pages/index.tsx
 import { useEffect, useState, useRef } from "react";
 import Head from "next/head";
-import { VocabWord } from "./api/generateWords";
+import type { VocabWord } from "./api/generateWords";
+import {
+  buildClozeSentence,
+  getActivityLevel,
+  getNextDirection,
+  getPracticeMode,
+  isCorrectAnswer,
+  type PracticeMode,
+  type ReviewDirection,
+} from "../lib/learning";
 
 type TabType = "vocab" | "streak" | "progress" | "settings";
 
@@ -13,6 +22,7 @@ export interface SRSRecord {
   definition?: string;
   collocations?: string[];
   examples?: { en: string; cz: string }[];
+  direction?: ReviewDirection;
   stage: number; // 0: New, 1: 1d, 2: 3d, 3: 7d, 4: 14d, 5: 30d (Mastered)
   nextReviewDate: string; // YYYY-MM-DD
   lastReviewDate: string; // YYYY-MM-DD
@@ -78,9 +88,11 @@ export default function Home() {
   const [dailyTarget, setDailyTarget] = useState(10);
   const [learnedToday, setLearnedToday] = useState(0);
   const [streak, setStreak] = useState(1);
-  const [activeDays, setActiveDays] = useState<string[]>([]);
   const [srsRecords, setSrsRecords] = useState<SRSRecord[]>([]);
   const [weeklyHistory, setWeeklyHistory] = useState<{ [dateKey: string]: number }>({});
+  const [activityLog, setActivityLog] = useState<Record<string, number>>({});
+  const [typedAnswer, setTypedAnswer] = useState("");
+  const [typingFeedback, setTypingFeedback] = useState<"correct" | "incorrect" | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
@@ -145,19 +157,19 @@ export default function Home() {
       const savedStreak = parseInt(localStorage.getItem("vocab_streak") || "1", 10);
       const savedTarget = parseInt(localStorage.getItem("vocab_target") || "10", 10);
       const savedSRS: SRSRecord[] = JSON.parse(localStorage.getItem("vocab_srs_records_v1") || "[]");
-      const savedDays: string[] = JSON.parse(localStorage.getItem("vocab_active_days") || "[]");
       const savedHistory: { [dateKey: string]: number } = JSON.parse(localStorage.getItem("vocab_daily_counts") || "{}");
 
       setDailyTarget(savedTarget);
       setSrsRecords(savedSRS);
       setWeeklyHistory(savedHistory);
-
-      let currentActiveDays = savedDays;
-      if (!currentActiveDays.includes(today)) {
-        currentActiveDays = [...currentActiveDays, today];
-        localStorage.setItem("vocab_active_days", JSON.stringify(currentActiveDays));
+      const savedActivity = localStorage.getItem("vocab_review_activity_v1");
+      const activityHistory: Record<string, number> = savedActivity
+        ? JSON.parse(savedActivity)
+        : savedHistory;
+      setActivityLog(activityHistory);
+      if (!savedActivity) {
+        localStorage.setItem("vocab_review_activity_v1", JSON.stringify(activityHistory));
       }
-      setActiveDays(currentActiveDays);
 
       if (savedDate === today) {
         const todayCount = parseInt(localStorage.getItem("vocab_learned_today") || "0", 10);
@@ -280,10 +292,22 @@ export default function Home() {
       examples: r.examples || [],
       level: r.level,
       theme: `⏰ Opakování (${r.stage}. fáze paměti)`,
+      direction: r.direction || "en-to-cz",
     }));
 
     const neededNewCount = Math.max(3, 6 - dueVocabWords.length);
     const excludeList = currentSRS.map((r) => r.text);
+    const prepareQueue = (queue: VocabWord[]) => {
+      const savedActivity: Record<string, number> = JSON.parse(
+        localStorage.getItem("vocab_review_activity_v1") || "{}"
+      );
+      const previousReviews = Object.values(savedActivity).reduce((total, count) => total + count, 0);
+      return queue.map((word, index) => ({
+        ...word,
+        direction: word.direction || "en-to-cz",
+        practiceMode: getPracticeMode(previousReviews + index + 1),
+      }));
+    };
 
     try {
       const res = await fetch("/api/generateWords", {
@@ -292,12 +316,12 @@ export default function Home() {
         body: JSON.stringify({ count: neededNewCount, excludeWords: excludeList }),
       });
       const newAiWords: VocabWord[] = await res.json();
-      setWords([...dueVocabWords, ...newAiWords]);
+      setWords(prepareQueue([...dueVocabWords, ...newAiWords]));
       setCurrentIndex(0);
     } catch (e) {
       console.error(e);
       if (dueVocabWords.length > 0) {
-        setWords(dueVocabWords);
+        setWords(prepareQueue(dueVocabWords));
         setCurrentIndex(0);
       }
     } finally {
@@ -306,6 +330,26 @@ export default function Home() {
   };
 
   const currentWord = words[currentIndex];
+  const currentDirection: ReviewDirection = currentWord?.direction || "en-to-cz";
+  const currentPracticeMode: PracticeMode = currentWord?.practiceMode || getPracticeMode(currentIndex + 1);
+  const currentClozeSentence = currentWord
+    ? buildClozeSentence(
+        currentWord.examples || [],
+        currentWord.text,
+        currentWord.czechTranslation,
+        currentDirection
+      )
+    : "";
+
+  const recordReviewActivity = () => {
+    const today = new Date().toISOString().split("T")[0];
+    const savedLog: Record<string, number> = JSON.parse(
+      localStorage.getItem("vocab_review_activity_v1") || "{}"
+    );
+    const updatedLog = { ...savedLog, [today]: (savedLog[today] || 0) + 1 };
+    localStorage.setItem("vocab_review_activity_v1", JSON.stringify(updatedLog));
+    setActivityLog(updatedLog);
+  };
 
   const playAudio = (text: string) => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
@@ -328,6 +372,7 @@ export default function Home() {
 
     setTimeout(() => {
       const today = new Date().toISOString().split("T")[0];
+      recordReviewActivity();
       const newLearned = learnedToday + 1;
       setLearnedToday(newLearned);
       localStorage.setItem("vocab_learned_today", newLearned.toString());
@@ -349,6 +394,7 @@ export default function Home() {
         definition: currentWord.definition,
         collocations: currentWord.collocations,
         examples: currentWord.examples,
+        direction: getNextDirection(currentDirection),
         stage: nextStage,
         nextReviewDate,
         lastReviewDate: today,
@@ -384,6 +430,7 @@ export default function Home() {
 
     setTimeout(() => {
       const today = new Date().toISOString().split("T")[0];
+      recordReviewActivity();
       const existingRecord = srsRecords.find((r) => r.text.toLowerCase() === currentWord.text.toLowerCase());
       const resetStage = 0;
       const nextReviewDate = today;
@@ -396,6 +443,7 @@ export default function Home() {
         definition: currentWord.definition,
         collocations: currentWord.collocations,
         examples: currentWord.examples,
+        direction: currentDirection,
         stage: resetStage,
         nextReviewDate,
         lastReviewDate: today,
@@ -416,6 +464,8 @@ export default function Home() {
 
   const nextCard = (advance = true) => {
     setShowAnswer(false);
+    setTypedAnswer("");
+    setTypingFeedback(null);
     setDragOffset({ x: 0, y: 0 });
     setIsFlyingOut(null);
     if (advance) {
@@ -425,6 +475,20 @@ export default function Home() {
         fetchSmartWordsQueue();
       }
     }
+  };
+
+  const handleTypingSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!currentWord || !typedAnswer.trim() || isFlyingOut) return;
+
+    if (isCorrectAnswer(typedAnswer, currentWord.text)) {
+      setTypingFeedback("correct");
+      handleKnown();
+      return;
+    }
+
+    setTypingFeedback("incorrect");
+    handleRepeat();
   };
 
   // Touch / Drag Gesture Handlers
@@ -556,13 +620,18 @@ export default function Home() {
       const monthStr = (month + 1 < 10 ? "0" : "") + (month + 1);
       const dayStr = (d < 10 ? "0" : "") + d;
       const dateKey = `${year}-${monthStr}-${dayStr}`;
-      const isActive = activeDays.includes(dateKey);
+      const reviewCount = activityLog[dateKey] || 0;
       const isToday = d === todayNum;
+      const activityLevel = getActivityLevel(reviewCount);
 
       cells.push(
-        <div key={dateKey} className={`cal-day ${isActive ? "active" : ""} ${isToday ? "today" : ""}`}>
+        <div
+          key={dateKey}
+          aria-label={`${dateKey}: ${reviewCount} kartiček`}
+          className={`cal-day activity-${activityLevel} ${isToday ? "today" : ""}`}
+          title={`${reviewCount} ${reviewCount === 1 ? "kartička" : "kartiček"}`}
+        >
           <span>{d}</span>
-          {isActive && <span style={{ fontSize: "0.65rem", marginTop: "-2px" }}>🔥</span>}
         </div>
       );
     }
@@ -582,6 +651,7 @@ export default function Home() {
   const shortTermCount = srsRecords.filter((r) => r.stage >= 1 && r.stage <= 2).length;
   const mediumTermCount = srsRecords.filter((r) => r.stage >= 3 && r.stage <= 4).length;
   const masteredCount = srsRecords.filter((r) => r.stage >= 5).length;
+  const activityDaysCount = Object.values(activityLog).filter((count) => count > 0).length;
 
   const activeWordRecord = currentWord
     ? srsRecords.find((r) => r.text.toLowerCase() === currentWord.text.toLowerCase())
@@ -874,9 +944,16 @@ export default function Home() {
                     {/* Word & Phonetic */}
                     <div style={{ textAlign: "center", margin: "6px 0" }}>
                       <h2 style={{ fontSize: "1.85rem", fontWeight: "800", color: "#ffffff", letterSpacing: "-0.02em" }}>
-                        {currentWord.text}
+                        {showAnswer
+                          ? currentWord.text
+                          : currentDirection === "en-to-cz"
+                          ? "Doplň chybějící slovo"
+                          : "Přelož do angličtiny"}
                       </h2>
-                      {currentWord.phonetic && (
+                      {!showAnswer && (
+                        <div className="cloze-prompt">{currentClozeSentence}</div>
+                      )}
+                      {showAnswer && currentWord.phonetic && (
                         <div style={{ color: "#94a3b8", fontSize: "0.88rem", fontStyle: "italic", marginTop: "2px" }}>
                           {currentWord.phonetic}
                         </div>
@@ -888,7 +965,7 @@ export default function Home() {
                       data-card-flip-target=""
                       role="button"
                       tabIndex={0}
-                      aria-label={showAnswer ? "Skrýt překlad" : "Odhalit překlad"}
+                      aria-label={showAnswer ? "Skrýt odpověď" : "Odhalit odpověď"}
                       aria-expanded={showAnswer}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
@@ -911,7 +988,7 @@ export default function Home() {
                       {showAnswer ? (
                         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                           <div style={{ fontSize: "1.15rem", fontWeight: "800", color: "#38bdf8" }}>
-                            {currentWord.czechTranslation}
+                            {currentDirection === "en-to-cz" ? currentWord.czechTranslation : currentWord.text}
                           </div>
 
                           {currentWord.collocations && currentWord.collocations.length > 0 && (
@@ -970,26 +1047,47 @@ export default function Home() {
               </div>
 
               {/* Bottom Card Action Buttons */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "10px" }}>
-                <button
-                  disabled={!currentWord || isLoading}
-                  onClick={(e)=>{e.stopPropagation(); handleRepeat();}}
-                  className="btn-repeat"
-                  style={{ padding: "13px", fontSize: "0.88rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", background: "linear-gradient(135deg, #f59e0b, #d97706)", color: "#fff" }}
-                >
-                  <span>👈 Zopakovat</span>
-                  <span>🔄 </span>
-                </button>
-                <button
-                  disabled={!currentWord || isLoading}
-                  onClick={(e)=>{e.stopPropagation(); handleKnown();}}
-                  className="btn-know"
-                  style={{ padding: "13px", fontSize: "0.88rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", background: "linear-gradient(135deg, #10b981, #059669)", color: "#fff" }}
-                >
-                  <span>✅ Umím to</span>
-                  <span>👉</span>
-                </button>
-              </div>
+              {currentPracticeMode === "typing" ? (
+                <form className="typing-controls" onSubmit={handleTypingSubmit}>
+                  <input
+                    aria-label="Napiš anglické slovo"
+                    autoComplete="off"
+                    autoCapitalize="none"
+                    disabled={!currentWord || isLoading || isFlyingOut !== null}
+                    onChange={(event) => setTypedAnswer(event.target.value)}
+                    placeholder="Napiš anglické slovo"
+                    type="text"
+                    value={typedAnswer}
+                  />
+                  <button className="btn-know" disabled={!typedAnswer.trim() || isLoading || isFlyingOut !== null} type="submit">
+                    Ověřit
+                  </button>
+                  {typingFeedback === "incorrect" && (
+                    <span aria-live="polite" className="typing-feedback">Zkus to znovu.</span>
+                  )}
+                </form>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "10px" }}>
+                  <button
+                    disabled={!currentWord || isLoading}
+                    onClick={(event) => { event.stopPropagation(); handleRepeat(); }}
+                    className="btn-repeat"
+                    style={{ padding: "13px", fontSize: "0.88rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", background: "linear-gradient(135deg, #f59e0b, #d97706)", color: "#fff" }}
+                  >
+                    <span>👈 Zopakovat</span>
+                    <span>🔄 </span>
+                  </button>
+                  <button
+                    disabled={!currentWord || isLoading}
+                    onClick={(event) => { event.stopPropagation(); handleKnown(); }}
+                    className="btn-know"
+                    style={{ padding: "13px", fontSize: "0.88rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", background: "linear-gradient(135deg, #10b981, #059669)", color: "#fff" }}
+                  >
+                    <span>✅ Umím to</span>
+                    <span>👉</span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -1132,10 +1230,10 @@ export default function Home() {
               <div className="glass-panel" style={{ padding: "16px", marginTop: "10px", flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
                   <span style={{ fontSize: "0.85rem", fontWeight: "700", color: "#f8fafc" }}>
-                    📅 Tento měsíc
+                    📅 Aktivita tento měsíc
                   </span>
                   <span style={{ fontSize: "0.75rem", color: "#64748b" }}>
-                    Aktivní dny: <strong style={{ color: "#fbbf24" }}>{activeDays.length}</strong>
+                    Aktivní dny: <strong style={{ color: "#fbbf24" }}>{activityDaysCount}</strong>
                   </span>
                 </div>
 
@@ -1145,6 +1243,15 @@ export default function Home() {
 
                 <div className="calendar-grid">
                   {renderCalendar()}
+                </div>
+                <div className="heatmap-legend" aria-label="Intenzita aktivity: méně až více">
+                  <span>Méně</span>
+                  <span className="heatmap-swatch activity-0" />
+                  <span className="heatmap-swatch activity-1" />
+                  <span className="heatmap-swatch activity-2" />
+                  <span className="heatmap-swatch activity-3" />
+                  <span className="heatmap-swatch activity-4" />
+                  <span>Více</span>
                 </div>
               </div>
             </div>
