@@ -162,7 +162,7 @@ html, body {
 
 /* Czech translation */
 .review-back-word {
-  font-size: clamp(1.25rem, 5vw, 1.9rem);
+  font-size: clamp(12.5rem, 50vw, 19rem); /* 10× větší */
   font-weight: 800;
   line-height: 1.15;
   letter-spacing: -0.02em;
