@@ -855,7 +855,10 @@ export default function Home() {
                       overflow: "hidden",
                     }}
                   >
-                    <div className="review-card-face review-card-front">
+                    <div
+                      className="review-card-face review-card-front"
+                      style={{ zIndex: showAnswer ? 0 : 1 }}
+                    >
                       {/* Swipe Visual Cue Indicators */}
                       {isSwipingRight && (
                         <div
@@ -980,6 +983,7 @@ export default function Home() {
 
                     <div
                       className="review-card-face review-card-back"
+                      style={{ zIndex: showAnswer ? 1 : 0 }}
                       data-card-flip-target=""
                       role="button"
                       tabIndex={showAnswer ? 0 : -1}
