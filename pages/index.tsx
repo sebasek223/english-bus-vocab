@@ -17,7 +17,6 @@ export default function Home() {
   const [words, setWords] = useState<VocabWord[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
-  const [level, setLevel] = useState<"B2" | "C1" | "MIXED">("B2");
   const [dailyTarget, setDailyTarget] = useState(10);
   const [learnedToday, setLearnedToday] = useState(0);
   const [streak, setStreak] = useState(1);
@@ -69,11 +68,11 @@ export default function Home() {
         localStorage.setItem("vocab_last_date", today);
       }
 
-      fetchWords("B2");
+      fetchWords();
     }
   }, []);
 
-  const fetchWords = async (targetLevel = level) => {
+  const fetchWords = async () => {
     setIsLoading(true);
     setShowAnswer(false);
     try {
@@ -81,7 +80,7 @@ export default function Home() {
       const res = await fetch("/api/generateWords", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ level: targetLevel, count: 6, excludeWords: exclude }),
+        body: JSON.stringify({ count: 6, excludeWords: exclude }),
       });
       const data: VocabWord[] = await res.json();
       setWords(data);
@@ -148,7 +147,7 @@ export default function Home() {
     if (currentIndex + 1 < words.length) {
       setCurrentIndex((i) => i + 1);
     } else {
-      fetchWords(level);
+      fetchWords();
     }
   };
 
@@ -208,7 +207,6 @@ export default function Home() {
     return cells;
   };
 
-  // Rank determination based on total words learned
   const getRank = (count: number) => {
     if (count >= 100) return { title: "C1 Anglický Expert", icon: "👑", color: "#fbbf24" };
     if (count >= 50) return { title: "B2 Pokročilý Mistr", icon: "🥇", color: "#818cf8" };
@@ -271,30 +269,24 @@ export default function Home() {
           {/* TAB 1: SLOVÍČKA (Single Flashcard View) */}
           {currentTab === "vocab" && (
             <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-              {/* Top controls: Level switcher & Progress text */}
+              {/* Top Sub-Header: Context / Seasonal Topic indicator & Daily counter */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                <div style={{ display: "flex", background: "rgba(255, 255, 255, 0.06)", borderRadius: "10px", padding: "2px" }}>
-                  {(["B2", "C1", "MIXED"] as const).map((lvl) => (
-                    <button
-                      key={lvl}
-                      onClick={() => {
-                        setLevel(lvl);
-                        fetchWords(lvl);
-                      }}
-                      style={{
-                        background: level === lvl ? "#6366f1" : "transparent",
-                        color: level === lvl ? "#ffffff" : "#94a3b8",
-                        border: "none",
-                        padding: "5px 12px",
-                        borderRadius: "8px",
-                        fontSize: "0.75rem",
-                        fontWeight: "700",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {lvl}
-                    </button>
-                  ))}
+                <div
+                  style={{
+                    background: "rgba(99, 102, 241, 0.12)",
+                    border: "1px solid rgba(99, 102, 241, 0.25)",
+                    padding: "4px 10px",
+                    borderRadius: "10px",
+                    fontSize: "0.75rem",
+                    fontWeight: "700",
+                    color: "#a5b4fc",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "5px",
+                  }}
+                >
+                  <span>✨</span>
+                  <span>{currentWord?.theme || "B2 & C1 Mix"}</span>
                 </div>
 
                 <div style={{ fontSize: "0.8rem", color: "#94a3b8", fontWeight: "600" }}>
@@ -307,14 +299,15 @@ export default function Home() {
                 {isLoading ? (
                   <div style={{ textAlign: "center", padding: "20px" }}>
                     <div style={{ fontSize: "2rem", marginBottom: "8px" }}>🤖✨</div>
-                    <div style={{ fontWeight: "700", color: "#cbd5e1", fontSize: "0.95rem" }}>Generuji {level} slovíčka...</div>
+                    <div style={{ fontWeight: "700", color: "#cbd5e1", fontSize: "0.95rem" }}>Připravuji aktuální slovíčka...</div>
+                    <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "4px" }}>Mix B2 & C1 podle sezóny a situace</div>
                   </div>
                 ) : !currentWord ? (
                   <div className="glass-panel" style={{ padding: "24px", textAlign: "center", width: "100%" }}>
                     <div style={{ fontSize: "2rem", marginBottom: "8px" }}>🎉</div>
                     <div style={{ fontWeight: "800", fontSize: "1.1rem", marginBottom: "6px" }}>Kolo dokončeno!</div>
-                    <p style={{ fontSize: "0.82rem", color: "#94a3b8", marginBottom: "16px" }}>Skvělá práce.</p>
-                    <button onClick={() => fetchWords(level)} className="btn-primary" style={{ padding: "10px 20px", fontSize: "0.88rem" }}>
+                    <p style={{ fontSize: "0.82rem", color: "#94a3b8", marginBottom: "16px" }}>Skvělá práce v autobuse.</p>
+                    <button onClick={fetchWords} className="btn-primary" style={{ padding: "10px 20px", fontSize: "0.88rem" }}>
                       ⚡ Dalších 5 slovíček
                     </button>
                   </div>

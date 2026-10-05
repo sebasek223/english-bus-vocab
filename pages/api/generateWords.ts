@@ -11,6 +11,7 @@ export interface VocabWord {
   example: string;
   exampleCzech?: string;
   level: "B2" | "C1";
+  theme?: string;
 }
 
 const FALLBACK_WORDS: VocabWord[] = [
@@ -22,7 +23,8 @@ const FALLBACK_WORDS: VocabWord[] = [
     definition: "The capacity to recover quickly from difficulties; toughness.",
     example: "Courage and resilience helped her overcome the financial crisis.",
     exampleCzech: "Odvaha a odolnost jí pomohly překonat finanční krizi.",
-    level: "B2"
+    level: "B2",
+    theme: "Každodenní život"
   },
   {
     id: "fallback_2",
@@ -32,7 +34,8 @@ const FALLBACK_WORDS: VocabWord[] = [
     definition: "Showing great attention to detail; very careful and precise.",
     example: "He was meticulous about keeping his research notes organized.",
     exampleCzech: "Byl velmi pečlivý při udržování pořádku ve svých výzkumných poznámkách.",
-    level: "C1"
+    level: "C1",
+    theme: "Práce a soustředění"
   },
   {
     id: "fallback_3",
@@ -42,7 +45,8 @@ const FALLBACK_WORDS: VocabWord[] = [
     definition: "Present, appearing, or found everywhere.",
     example: "Smartphones have become ubiquitous in modern daily life.",
     exampleCzech: "Chytré telefony se v moderním každodenním životě staly všudypřítomnými.",
-    level: "C1"
+    level: "C1",
+    theme: "Moderní svět"
   },
   {
     id: "fallback_4",
@@ -52,7 +56,8 @@ const FALLBACK_WORDS: VocabWord[] = [
     definition: "Of considerable importance, size, or worth.",
     example: "They made substantial progress toward achieving their annual goal.",
     exampleCzech: "Dosáhli značného pokroku směrem k dosažení svého ročního cíle.",
-    level: "B2"
+    level: "B2",
+    theme: "Pokrok a cíle"
   },
   {
     id: "fallback_5",
@@ -62,39 +67,39 @@ const FALLBACK_WORDS: VocabWord[] = [
     definition: "Open to more than one interpretation; having a double meaning.",
     example: "The instructions were ambiguous, leading to confusion among the team.",
     exampleCzech: "Pokyny byly nejednoznačné, což vedlo ke zmatku v týmu.",
-    level: "B2"
+    level: "B2",
+    theme: "Komunikace"
   },
   {
     id: "fallback_6",
     text: "Eloquent",
     phonetic: "/ˈel.ə.kwənt/",
     czechTranslation: "výmluvný, kultivovaný v projevu",
-    definition: "Fluent or persuasive in speaking or writing.",
+    definition: "Fluent or practical in speaking or writing.",
     example: "His eloquent speech inspired everyone in the auditorium.",
     exampleCzech: "Jeho výmluvný projev inspiroval každého v sále.",
-    level: "C1"
-  },
-  {
-    id: "fallback_7",
-    text: "Feasible",
-    phonetic: "/ˈfiː.zə.bəl/",
-    czechTranslation: "proveditelný, reálný",
-    definition: "Possible to do easily or conveniently.",
-    example: "It is not technically feasible to complete the project by tomorrow.",
-    exampleCzech: "Není technicky proveditelné dokončit projekt do zítřka.",
-    level: "B2"
-  },
-  {
-    id: "fallback_8",
-    text: "Scrutinize",
-    phonetic: "/ˈskruː.tɪ.naɪz/",
-    czechTranslation: "podrobně zkoumat, bedlivě prohlížet",
-    definition: "Examine or inspect closely and thoroughly.",
-    example: "Scientists will scrutinize the new data before publishing their findings.",
-    exampleCzech: "Vědci nová data pečlivě prozkoumají, než své závěry publikují.",
-    level: "C1"
+    level: "C1",
+    theme: "Společnost a řeč"
   }
 ];
+
+function getSeasonalContext(): string {
+  const now = new Date();
+  const month = now.getMonth() + 1; // 1-12
+  const day = now.getDate();
+
+  if (month === 10 && day >= 20) return "Late October / Halloween / Autumn season (include autumn/mystery/atmosphere or everyday relevant terms)";
+  if (month === 10) return "October / Autumn cozy season (nature, mood, work, daily life)";
+  if (month === 11) return "November / Late Autumn / Thanksgiving / Cozy indoor vibes";
+  if (month === 12) return "December / Winter / Christmas & Festive celebrations / Year-end reflection";
+  if (month === 1) return "January / New Year / Resolutions / Fresh starts & Winter routines";
+  if (month === 2) return "February / Winter / Valentine's & relationships & focus";
+  if (month === 3 || month === 4) return "Spring / Easter / Nature awakening & Fresh energy";
+  if (month === 5) return "May / Late Spring / Outdoor adventures & Social life";
+  if (month === 6 || month === 7 || month === 8) return "Summer / Travel / Holidays / Sun / Leisure & Road trips";
+  if (month === 9) return "September / Back to work & study / Autumn beginnings";
+  return "General modern everyday conversational and contextual English";
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -102,12 +107,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
-  const { level = "B2", count = 5, excludeWords = [] } = req.body;
+  const { count = 5, excludeWords = [] } = req.body;
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey || apiKey === "YOUR_GEMINI_API_KEY") {
     return res.status(200).json(FALLBACK_WORDS.slice(0, count));
   }
+
+  const seasonalContext = getSeasonalContext();
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
@@ -115,18 +122,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       model: "gemini-1.5-flash",
     });
 
-    const prompt = `You are an expert English vocabulary coach for Czech speakers.
-Generate ${count} essential English vocabulary words at the ${level} CEFR level (or mixed B2/C1 if level is 'MIXED').
-Exclude these already practiced words: ${JSON.stringify(excludeWords.slice(-30))}.
+    const prompt = `You are an expert English vocabulary coach for Czech speakers learning on the go (e.g. during a 5-min bus ride).
+Generate ${count} engaging English vocabulary words or phrasal verbs, smoothly mixed between B2 (Upper-Intermediate) and C1 (Advanced) levels.
+
+CURRENT SEASONAL & CALENDAR CONTEXT: "${seasonalContext}".
+Weave in relevant thematic, seasonal, holiday, atmospheric, or modern practical vocabulary fitting this time of year and everyday life.
+
+Exclude these already practiced words: ${JSON.stringify(excludeWords.slice(-40))}.
 
 For each word, return a JSON array of objects with the following keys:
-- "text": English word or phrasal verb
+- "text": English word, idiom, or phrasal verb
 - "phonetic": IPA pronunciation (e.g. "/rɪˈzɪl.jəns/")
-- "czechTranslation": Czech translation/meaning
-- "definition": Clear, simple English definition
-- "example": Natural English example sentence
+- "czechTranslation": Natural Czech translation/meaning
+- "definition": Clear, concise English definition
+- "example": Natural, engaging English example sentence
 - "exampleCzech": Czech translation of the example sentence
-- "level": "${level === "MIXED" ? "B2 or C1" : level}"
+- "level": Either "B2" or "C1"
+- "theme": Short 2-3 word topic in Czech (e.g. "Podzim & Nálada", "Práce & Úspěch", "Cestování", "Svátky", "Společnost")
 
 Output ONLY a valid JSON array of objects, without markdown code fences.`;
 
@@ -147,13 +159,13 @@ Output ONLY a valid JSON array of objects, without markdown code fences.`;
       definition: item.definition || "",
       example: item.example || "",
       exampleCzech: item.exampleCzech || "",
-      level: item.level || level,
+      level: item.level === "C1" ? "C1" : "B2",
+      theme: item.theme || "Slovní zásoba",
     }));
 
     return res.status(200).json(formattedWords);
   } catch (error: any) {
     console.error("Gemini API error, falling back to offline dictionary:", error?.message || error);
-    const matched = FALLBACK_WORDS.filter((w) => level === "MIXED" || w.level === level);
-    return res.status(200).json(matched.length > 0 ? matched : FALLBACK_WORDS);
+    return res.status(200).json(FALLBACK_WORDS.slice(0, count));
   }
 }
