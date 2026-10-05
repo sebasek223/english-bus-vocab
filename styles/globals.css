@@ -93,82 +93,144 @@ html, body {
 }
 
 .review-step-label {
-  font-size: 0.65rem;
+  display: inline-block;
+  font-size: 0.62rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-muted);
   padding: 3px 10px;
   border-radius: 20px;
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.1);
+  flex-shrink: 0;
 }
 
 .review-flip-hint {
   color: var(--text-muted);
-  font-size: clamp(0.67rem, 2vw, 0.75rem);
+  font-size: clamp(0.65rem, 2vw, 0.74rem);
 }
 
 .review-phonetic {
   color: var(--text-muted);
-  font-size: clamp(0.78rem, 2.5vw, 0.9rem);
+  font-size: clamp(0.75rem, 2.5vw, 0.88rem);
   font-style: italic;
 }
 
-.review-back-word {
-  font-size: clamp(1.7rem, 7vw, 2.6rem);
-  font-weight: 800;
-  line-height: 1.1;
+/* ── Back face layout ── */
+.review-card-back {
+  transform: rotateY(180deg);
+  justify-content: flex-start !important;
+  align-items: center !important;
+  text-align: center;
+  gap: 0;
+  padding: clamp(12px, 3.5vw, 20px) clamp(14px, 4vw, 20px) !important;
+  overflow-y: auto;
+}
+
+.review-back-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(4px, 1.5vw, 8px);
+  width: 100%;
+  margin-bottom: clamp(8px, 2vw, 14px);
+}
+
+/* English word – prominent, colored */
+.review-back-en-word {
+  font-size: clamp(1.55rem, 6.5vw, 2.4rem);
+  font-weight: 900;
   letter-spacing: -0.03em;
+  line-height: 1.05;
+  background: linear-gradient(135deg, #60a5fa, #818cf8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Czech translation */
+.review-back-word {
+  font-size: clamp(1.25rem, 5vw, 1.9rem);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
   color: #38bdf8;
 }
 
 .review-back-definition {
-  max-width: 30ch;
+  width: 100%;
   color: var(--text-muted);
-  font-size: clamp(0.76rem, 2.2vw, 0.86rem);
-  line-height: 1.5;
+  font-size: clamp(0.74rem, 2.1vw, 0.84rem);
+  line-height: 1.55;
+  text-align: center;
+  margin-bottom: clamp(6px, 1.5vw, 10px);
+}
+
+/* Section wrapper (Collocations / Examples) */
+.review-back-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: clamp(6px, 1.5vw, 10px);
+}
+
+.review-back-section-label {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #6366f1;
 }
 
 .review-back-collocations {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .review-back-collocations span {
-  padding: 5px 10px;
-  border: 1px solid rgba(99, 102, 241, 0.22);
+  padding: 4px 10px;
+  border: 1px solid rgba(99, 102, 241, 0.3);
   border-radius: 20px;
-  background: rgba(99, 102, 241, 0.1);
+  background: rgba(99, 102, 241, 0.12);
   color: #a5b4fc;
-  font-size: clamp(0.64rem, 2vw, 0.7rem);
+  font-size: clamp(0.63rem, 1.9vw, 0.7rem);
   font-weight: 600;
 }
 
 .review-back-examples {
   width: 100%;
-  color: var(--text-muted);
-  font-size: clamp(0.68rem, 2vw, 0.74rem);
-  line-height: 1.5;
-  text-align: left;
-  padding: 8px 10px;
-  background: rgba(255,255,255,0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.review-back-example-row {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
   border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.06);
+  padding: clamp(7px, 2vw, 10px) clamp(8px, 2.5vw, 12px);
+  text-align: left;
 }
 
-.review-back-examples > div + div {
-  margin-top: 8px;
-  border-top: 1px solid rgba(255,255,255,0.05);
-  padding-top: 8px;
+.review-back-example-en {
+  color: #e2e8f0;
+  font-size: clamp(0.7rem, 2vw, 0.78rem);
+  font-weight: 600;
+  line-height: 1.45;
+  margin: 0;
 }
 
-.review-back-examples p + p {
-  margin-top: 2px;
-  opacity: 0.75;
+.review-back-example-cz {
+  color: var(--text-muted);
+  font-size: clamp(0.65rem, 1.9vw, 0.72rem);
   font-style: italic;
+  line-height: 1.4;
+  margin: 3px 0 0;
+  opacity: 0.8;
 }
 
 .review-actions {
@@ -470,7 +532,29 @@ html, body {
 
 @media (max-width: 360px) {
   .review-card-face {
-    padding: 14px 12px;
+    padding: 12px 11px;
+  }
+
+  .review-back-header {
+    gap: 3px;
+    margin-bottom: 7px;
+  }
+
+  .review-back-en-word {
+    font-size: 1.4rem;
+  }
+
+  .review-back-word {
+    font-size: 1.1rem;
+  }
+
+  .review-back-section {
+    margin-top: 6px;
+    gap: 4px;
+  }
+
+  .review-back-example-row {
+    padding: 6px 8px;
   }
 
   .review-actions {
@@ -480,6 +564,24 @@ html, body {
   .review-actions button {
     padding: 10px 6px;
     font-size: 0.8rem;
+    min-height: 46px;
+  }
+}
+
+/* Extra small (iPhone SE, Galaxy A03) */
+@media (max-width: 320px) {
+  .review-back-en-word {
+    font-size: 1.25rem;
+  }
+
+  .review-back-word {
+    font-size: 1rem;
+  }
+
+  .review-back-definition,
+  .review-back-example-en,
+  .review-back-example-cz {
+    font-size: 0.67rem;
   }
 }
 
@@ -723,4 +825,47 @@ html[data-theme="light"] .tab-btn {
 
 html[data-theme="light"] .tab-btn.active {
   color: #4338ca;
+}
+
+/* Light theme – back card */
+html[data-theme="light"] .review-back-en-word {
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+html[data-theme="light"] .review-back-word {
+  color: #0369a1;
+}
+
+html[data-theme="light"] .review-back-definition {
+  color: #566579;
+}
+
+html[data-theme="light"] .review-back-section-label {
+  color: #4338ca;
+}
+
+html[data-theme="light"] .review-back-collocations span {
+  background: rgba(79, 70, 229, 0.1);
+  border-color: rgba(79, 70, 229, 0.25);
+  color: #4338ca;
+}
+
+html[data-theme="light"] .review-back-example-row {
+  background: rgba(15, 23, 42, 0.03);
+  border-color: rgba(15, 23, 42, 0.09);
+}
+
+html[data-theme="light"] .review-back-example-en {
+  color: #1e293b;
+}
+
+html[data-theme="light"] .review-back-example-cz {
+  color: #566579;
+}
+
+html[data-theme="light"] .btn-repeat {
+  color: #ffffff !important;
 }

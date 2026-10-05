@@ -998,22 +998,49 @@ export default function Home() {
                           }
                         }}
                       >
-                        <span className="review-step-label">ODPOVĚĎ</span>
-                        <h2 className="review-back-word">{currentAnswer}</h2>
-                        {currentWord.definition && <div className="review-back-definition">{currentWord.definition}</div>}
+                        {/* Badge + English word */}
+                        <div className="review-back-header">
+                          <span className="review-step-label">ODPOVĚĎ</span>
+                          {/* English word highlighted */}
+                          <div className="review-back-en-word">
+                            {currentWord.text}
+                          </div>
+                          {currentWord.phonetic && (
+                            <div className="review-phonetic">{currentWord.phonetic}</div>
+                          )}
+                          {/* Czech translation – large */}
+                          <h2 className="review-back-word">{currentAnswer}</h2>
+                        </div>
+
+                        {/* Definition */}
+                        {currentWord.definition && (
+                          <div className="review-back-definition">{currentWord.definition}</div>
+                        )}
+
+                        {/* Collocations */}
                         {currentWord.collocations?.length ? (
-                          <div className="review-back-collocations">
-                            {currentWord.collocations.map((collocation) => <span key={collocation}>{collocation}</span>)}
+                          <div className="review-back-section">
+                            <span className="review-back-section-label">Kolokace</span>
+                            <div className="review-back-collocations">
+                              {currentWord.collocations.map((collocation) => (
+                                <span key={collocation}>{collocation}</span>
+                              ))}
+                            </div>
                           </div>
                         ) : null}
+
+                        {/* Examples */}
                         {currentWord.examples?.length ? (
-                          <div className="review-back-examples">
-                            {currentWord.examples.map((example) => (
-                              <div key={example.en}>
-                                <p>{example.en}</p>
-                                {example.cz && <p>{example.cz}</p>}
-                              </div>
-                            ))}
+                          <div className="review-back-section">
+                            <span className="review-back-section-label">Příklady</span>
+                            <div className="review-back-examples">
+                              {currentWord.examples.map((example) => (
+                                <div key={example.en} className="review-back-example-row">
+                                  <p className="review-back-example-en">{example.en}</p>
+                                  {example.cz && <p className="review-back-example-cz">{example.cz}</p>}
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         ) : null}
                       </div>
