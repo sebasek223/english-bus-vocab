@@ -45,6 +45,110 @@ html, body {
   border-radius: 20px;
 }
 
+.review-card-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 18px 16px;
+  border-radius: inherit;
+  background: inherit;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  overflow: hidden;
+}
+
+.review-card-front {
+  z-index: 1;
+}
+
+.review-card-back {
+  transform: rotateY(180deg);
+  justify-content: flex-start;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 22px 18px;
+  overflow-y: auto;
+}
+
+.review-stage-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 12px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.review-flip-hint {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.review-back-word {
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.05em;
+}
+
+.review-back-definition {
+  max-width: 26ch;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.review-back-collocations {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.review-back-collocations span {
+  padding: 5px 8px;
+  border: 1px solid rgba(99, 102, 241, 0.22);
+  border-radius: 8px;
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--text-main);
+  font-size: 0.68rem;
+}
+
+.review-back-examples {
+  width: 100%;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.review-back-examples > div + div {
+  margin-top: 8px;
+}
+
+.review-back-examples p + p {
+  margin-top: 2px;
+  opacity: 0.8;
+}
+
+.review-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.review-actions button {
+  min-height: 48px;
+  padding: 12px;
+  font-size: 0.88rem;
+}
+
 /* Tab button animation */
 .tab-btn {
   display: flex;
@@ -305,59 +409,6 @@ html, body {
   color: #ffffff;
 }
 
-.cloze-prompt {
-  margin-top: 8px;
-  padding: 9px 12px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  color: #cbd5e1;
-  font-size: 0.92rem;
-  line-height: 1.5;
-}
-
-.typing-controls {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.typing-controls input {
-  min-width: 0;
-  padding: 11px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--text-main);
-  font-size: 0.9rem;
-  user-select: text;
-}
-
-.typing-controls input:focus {
-  outline: 2px solid var(--primary-light);
-  outline-offset: 1px;
-}
-
-.typing-controls button {
-  padding: 10px 14px;
-  border: 0;
-  border-radius: 10px;
-  font-size: 0.84rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.typing-controls button:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.typing-feedback {
-  grid-column: 1 / -1;
-  color: var(--accent-red);
-  font-size: 0.78rem;
-}
-
 .settings-segmented {
   display: flex;
   flex: 0 0 auto;
@@ -543,17 +594,6 @@ html[data-theme="light"] .cal-day.activity-4,
 html[data-theme="light"] .heatmap-swatch.activity-4 {
   background: #059669;
   color: #ffffff;
-}
-
-html[data-theme="light"] .cloze-prompt {
-  background: #edf2f7;
-  color: #334155;
-}
-
-html[data-theme="light"] .typing-controls input {
-  border-color: rgba(15, 23, 42, 0.18);
-  background: #ffffff;
-  color: #172033;
 }
 
 html[data-theme="light"] .tab-btn {

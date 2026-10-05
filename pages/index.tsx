@@ -3,14 +3,10 @@ import { useEffect, useState, useRef } from "react";
 import Head from "next/head";
 import type { VocabWord } from "./api/generateWords";
 import {
-  buildClozeSentence,
   getActivityLevel,
   getNextDirection,
-  getPracticeMode,
-  isCorrectAnswer,
   migrateDailyActivityLog,
   type DailyActivityLog,
-  type PracticeMode,
   type ReviewDirection,
 } from "../lib/learning";
 
@@ -20,6 +16,7 @@ export interface SRSRecord {
   text: string;
   czech: string;
   level: "B2" | "C1";
+  theme?: string;
   phonetic?: string;
   definition?: string;
   collocations?: string[];
@@ -93,8 +90,6 @@ export default function Home() {
   const [srsRecords, setSrsRecords] = useState<SRSRecord[]>([]);
   const [weeklyHistory, setWeeklyHistory] = useState<{ [dateKey: string]: number }>({});
   const [activityLog, setActivityLog] = useState<DailyActivityLog>({});
-  const [typedAnswer, setTypedAnswer] = useState("");
-  const [typingFeedback, setTypingFeedback] = useState<"correct" | "incorrect" | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
@@ -292,22 +287,17 @@ export default function Home() {
       collocations: r.collocations || [],
       examples: r.examples || [],
       level: r.level,
-      theme: `⏰ Opakování (${r.stage}. fáze paměti)`,
+      theme: r.theme || "Slovní zásoba",
       direction: r.direction || "en-to-cz",
+      reviewStage: r.stage,
     }));
 
     const neededNewCount = Math.max(3, 6 - dueVocabWords.length);
     const excludeList = currentSRS.map((r) => r.text);
     const prepareQueue = (queue: VocabWord[]) => {
-      const savedActivity = migrateDailyActivityLog(
-        JSON.parse(localStorage.getItem("vocab_review_activity_v1") || "{}"),
-        Number(localStorage.getItem("vocab_target") || dailyTarget)
-      );
-      const previousReviews = Object.values(savedActivity).reduce((total, activity) => total + activity.reviewed, 0);
       return queue.map((word, index) => ({
         ...word,
         direction: word.direction || "en-to-cz",
-        practiceMode: getPracticeMode(previousReviews + index + 1),
       }));
     };
 
@@ -318,7 +308,19 @@ export default function Home() {
         body: JSON.stringify({ count: neededNewCount, excludeWords: excludeList }),
       });
       const newAiWords: VocabWord[] = await res.json();
-      setWords(prepareQueue([...dueVocabWords, ...newAiWords]));
+      const shuffledNewWords = [...newAiWords];
+      for (let index = shuffledNewWords.length - 1; index > 0; index -= 1) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [shuffledNewWords[index], shuffledNewWords[swapIndex]] = [shuffledNewWords[swapIndex], shuffledNewWords[index]];
+      }
+      const firstDirection: ReviewDirection = Math.random() < 0.5 ? "en-to-cz" : "cz-to-en";
+      const bidirectionalNewWords = shuffledNewWords.map((word, index) => ({
+        ...word,
+        direction: index % 2 === 0
+          ? firstDirection
+          : firstDirection === "en-to-cz" ? "cz-to-en" : "en-to-cz",
+      }));
+      setWords(prepareQueue([...dueVocabWords, ...bidirectionalNewWords]));
       setCurrentIndex(0);
     } catch (e) {
       console.error(e);
@@ -333,15 +335,18 @@ export default function Home() {
 
   const currentWord = words[currentIndex];
   const currentDirection: ReviewDirection = currentWord?.direction || "en-to-cz";
-  const currentPracticeMode: PracticeMode = currentWord?.practiceMode || getPracticeMode(currentIndex + 1);
-  const currentClozeSentence = currentWord
-    ? buildClozeSentence(
-        currentWord.examples || [],
-        currentWord.text,
-        currentWord.czechTranslation,
-        currentDirection
-      )
-    : "";
+  const currentReviewStage = currentWord?.reviewStage ?? 0;
+  const currentPrompt = currentDirection === "cz-to-en"
+    ? currentWord?.czechTranslation
+    : currentWord?.text;
+  const currentAnswer = currentDirection === "cz-to-en"
+    ? currentWord?.text
+    : currentWord?.czechTranslation;
+
+  const handleFlip = () => {
+    if (!currentWord || isFlyingOut) return;
+    setShowAnswer((previous) => !previous);
+  };
 
   const recordReviewActivity = () => {
     const today = new Date().toISOString().split("T")[0];
@@ -397,6 +402,7 @@ export default function Home() {
         text: currentWord.text,
         czech: currentWord.czechTranslation,
         level: currentWord.level,
+        theme: currentWord.theme,
         phonetic: currentWord.phonetic,
         definition: currentWord.definition,
         collocations: currentWord.collocations,
@@ -446,6 +452,7 @@ export default function Home() {
         text: currentWord.text,
         czech: currentWord.czechTranslation,
         level: currentWord.level,
+        theme: currentWord.theme,
         phonetic: currentWord.phonetic,
         definition: currentWord.definition,
         collocations: currentWord.collocations,
@@ -464,15 +471,16 @@ export default function Home() {
       setSrsRecords(updatedSRSList);
       localStorage.setItem("vocab_srs_records_v1", JSON.stringify(updatedSRSList));
 
-      setWords((prev) => [...prev.filter((_, i) => i !== currentIndex), currentWord]);
+      setWords((prev) => [
+        ...prev.filter((_, i) => i !== currentIndex),
+        { ...currentWord, reviewStage: resetStage },
+      ]);
       nextCard(false);
     }, 220);
   };
 
   const nextCard = (advance = true) => {
     setShowAnswer(false);
-    setTypedAnswer("");
-    setTypingFeedback(null);
     setDragOffset({ x: 0, y: 0 });
     setIsFlyingOut(null);
     if (advance) {
@@ -484,26 +492,13 @@ export default function Home() {
     }
   };
 
-  const handleTypingSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!currentWord || !typedAnswer.trim() || isFlyingOut) return;
-
-    if (isCorrectAnswer(typedAnswer, currentWord.text)) {
-      setTypingFeedback("correct");
-      handleKnown();
-      return;
-    }
-
-    setTypingFeedback("incorrect");
-    handleRepeat();
-  };
-
   // Touch / Drag Gesture Handlers
   const handleTouchStart = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!currentWord || isFlyingOut) return;
     if (e.pointerType === "mouse" && e.button !== 0) return;
-    const flipTarget = e.currentTarget.querySelector("[data-card-flip-target]");
-    canFlipFromPointerRef.current = Boolean(flipTarget?.contains(e.target as Node));
+    canFlipFromPointerRef.current = Array.from(
+      e.currentTarget.querySelectorAll("[data-card-flip-target]")
+    ).some((flipTarget) => flipTarget.contains(e.target as Node));
     touchStartRef.current = { x: e.clientX, y: e.clientY };
     swipeDirectionRef.current = "undecided";
     holdTriggeredRef.current = false;
@@ -514,7 +509,7 @@ export default function Home() {
         if (swipeDirectionRef.current !== "undecided") return;
         holdTriggeredRef.current = true;
         setIsDragging(false);
-        setShowAnswer((previous) => !previous);
+        handleFlip();
       }, 500);
     }
 
@@ -566,7 +561,7 @@ export default function Home() {
     } else if (dragOffset.x < -threshold) {
       handleRepeat();
     } else if (canFlip && flipMode === "tap" && Math.abs(dragOffset.x) < 8 && Math.abs(dragOffset.y) < 8) {
-      setShowAnswer((previous) => !previous);
+      handleFlip();
     } else {
       setDragOffset({ x: 0, y: 0 });
     }
@@ -681,7 +676,7 @@ export default function Home() {
 
   // Compute card transform while dragging or flying out
   let cardTransform = "translate3d(0,0,0) rotate(0deg)";
-  let cardTransition = isDragging ? "none" : "transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease";
+  let cardTransition = isDragging ? "none" : "transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease";
   let cardOpacity = 1;
 
   if (isFlyingOut === "right") {
@@ -697,6 +692,7 @@ export default function Home() {
 
   const isSwipingRight = dragOffset.x > 30;
   const isSwipingLeft = dragOffset.x < -30;
+  const cardVisualTransform = `${cardTransform} rotateY(${showAnswer ? 180 : 0}deg)`;
 
   return (
     <>
@@ -840,15 +836,15 @@ export default function Home() {
                     style={{
                       width: "100%",
                       height: "100%",
-                      padding: "18px 16px",
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "space-between",
+                      padding: 0,
+                      display: "block",
                       minHeight: "min(290px, 100%)",
                       maxHeight: "min(560px, 100%)",
                       border: showAnswer ? "1px solid rgba(99, 102, 241, 0.4)" : "1px solid rgba(255, 255, 255, 0.1)",
                       cursor: "grab",
-                      transform: cardTransform,
+                      transform: cardVisualTransform,
+                      transformStyle: "preserve-3d",
+                      perspective: "1200px",
                       transition: cardTransition,
                       opacity: cardOpacity,
                       position: "relative",
@@ -856,245 +852,190 @@ export default function Home() {
                       overflow: "hidden",
                     }}
                   >
-                    {/* Swipe Visual Cue Indicators */}
-                    {isSwipingRight && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: "14px",
-                          left: "14px",
-                          background: "rgba(16, 185, 129, 0.9)",
-                          color: "white",
-                          fontWeight: "800",
-                          padding: "4px 10px",
-                          borderRadius: "8px",
-                          fontSize: "0.85rem",
-                          letterSpacing: "0.05em",
-                          boxShadow: "0 4px 12px rgba(16, 185, 129, 0.4)",
-                          zIndex: 10,
-                        }}
-                      >
-                        ✅ UMÍM
-                      </div>
-                    )}
-                    {isSwipingLeft && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: "14px",
-                          right: "14px",
-                          background: "rgba(245, 158, 11, 0.9)",
-                          color: "white",
-                          fontWeight: "800",
-                          padding: "4px 10px",
-                          borderRadius: "8px",
-                          fontSize: "0.85rem",
-                          letterSpacing: "0.05em",
-                          boxShadow: "0 4px 12px rgba(245, 158, 11, 0.4)",
-                          zIndex: 10,
-                        }}
-                      >
-                        🔄 ZOPAKOVAT
-                      </div>
-                    )}
-
-                    {/* Level, Memory Stage & Audio */}
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                        <span
+                    <div className="review-card-face review-card-front">
+                      {/* Swipe Visual Cue Indicators */}
+                      {isSwipingRight && (
+                        <div
                           style={{
-                            fontSize: "0.72rem",
+                            position: "absolute",
+                            top: "14px",
+                            left: "14px",
+                            background: "rgba(16, 185, 129, 0.9)",
+                            color: "white",
                             fontWeight: "800",
-                            padding: "3px 9px",
-                            borderRadius: "6px",
-                            background: currentWord.level === "C1" ? "rgba(245, 158, 11, 0.2)" : "rgba(99, 102, 241, 0.2)",
-                            color: currentWord.level === "C1" ? "#fbbf24" : "#818cf8",
+                            padding: "4px 10px",
+                            borderRadius: "8px",
+                            fontSize: "0.85rem",
+                            letterSpacing: "0.05em",
+                            boxShadow: "0 4px 12px rgba(16, 185, 129, 0.4)",
+                            zIndex: 10,
                           }}
                         >
-                          {currentWord.level}
-                        </span>
-
-                        <span
-                          style={{
-                            fontSize: "0.68rem",
-                            fontWeight: "700",
-                            padding: "3px 7px",
-                            borderRadius: "6px",
-                            background: "rgba(255, 255, 255, 0.06)",
-                            color: stageLabels[currentStage]?.color || "#94a3b8",
-                          }}
-                        >
-                          {stageLabels[currentStage]?.icon} {stageLabels[currentStage]?.label}
-                        </span>
-                      </div>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          playAudio(currentWord.text);
-                        }}
-                        style={{
-                          background: "rgba(255, 255, 255, 0.08)",
-                          border: "none",
-                          borderRadius: "50%",
-                          width: "34px",
-                          height: "34px",
-                          fontSize: "1rem",
-                          cursor: "pointer",
-                          color: isPlayingAudio ? "#818cf8" : "#ffffff",
-                        }}
-                      >
-                        🔊
-                      </button>
-                    </div>
-
-                    {/* Word & Phonetic */}
-                    <div style={{ textAlign: "center", margin: "6px 0" }}>
-                      <h2 style={{ fontSize: "1.85rem", fontWeight: "800", color: "#ffffff", letterSpacing: "-0.02em" }}>
-                        {showAnswer
-                          ? currentWord.text
-                          : currentDirection === "en-to-cz"
-                          ? "Doplň chybějící slovo"
-                          : "Přelož do angličtiny"}
-                      </h2>
-                      {!showAnswer && (
-                        <div className="cloze-prompt">{currentClozeSentence}</div>
-                      )}
-                      {showAnswer && currentWord.phonetic && (
-                        <div style={{ color: "#94a3b8", fontSize: "0.88rem", fontStyle: "italic", marginTop: "2px" }}>
-                          {currentWord.phonetic}
+                          ✅ UMÍM
                         </div>
                       )}
+                      {isSwipingLeft && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: "14px",
+                            right: "14px",
+                            background: "rgba(245, 158, 11, 0.9)",
+                            color: "white",
+                            fontWeight: "800",
+                            padding: "4px 10px",
+                            borderRadius: "8px",
+                            fontSize: "0.85rem",
+                            letterSpacing: "0.05em",
+                            boxShadow: "0 4px 12px rgba(245, 158, 11, 0.4)",
+                            zIndex: 10,
+                          }}
+                        >
+                          🔄 ZOPAKOVAT
+                        </div>
+                      )}
+
+                      {/* Level, Memory Stage & Audio */}
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                          <span
+                            style={{
+                              fontSize: "0.72rem",
+                              fontWeight: "800",
+                              padding: "3px 9px",
+                              borderRadius: "6px",
+                              background: currentWord.level === "C1" ? "rgba(245, 158, 11, 0.2)" : "rgba(99, 102, 241, 0.2)",
+                              color: currentWord.level === "C1" ? "#fbbf24" : "#818cf8",
+                            }}
+                          >
+                            {currentWord.level}
+                          </span>
+
+                          <span
+                            style={{
+                              fontSize: "0.68rem",
+                              fontWeight: "700",
+                              padding: "3px 7px",
+                              borderRadius: "6px",
+                              background: "rgba(255, 255, 255, 0.06)",
+                              color: stageLabels[currentStage]?.color || "#94a3b8",
+                            }}
+                          >
+                            {stageLabels[currentStage]?.icon} {stageLabels[currentStage]?.label}
+                          </span>
+                        </div>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            playAudio(currentWord.text);
+                          }}
+                          style={{
+                            background: "rgba(255, 255, 255, 0.08)",
+                            border: "none",
+                            borderRadius: "50%",
+                            width: "34px",
+                            height: "34px",
+                            fontSize: "1rem",
+                            cursor: "pointer",
+                            color: isPlayingAudio ? "#818cf8" : "#ffffff",
+                          }}
+                        >
+                          🔊
+                        </button>
+                      </div>
+
+                      <div
+                        className="review-stage-content review-recall"
+                        data-card-flip-target=""
+                        role="button"
+                        tabIndex={showAnswer ? -1 : 0}
+                        aria-hidden={showAnswer}
+                        aria-label={showAnswer ? "Skrýt odpověď" : "Odhalit odpověď"}
+                        aria-expanded={showAnswer}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            handleFlip();
+                          }
+                        }}
+                      >
+                        <span className="review-step-label">
+                          {currentDirection === "cz-to-en" ? "ČESKY → ANGLICKY" : "ANGLICKY → ČESKY"}
+                        </span>
+                        <h2 className="review-back-word">{currentPrompt}</h2>
+                        {currentDirection === "en-to-cz" && currentWord.phonetic && (
+                          <div className="review-phonetic">{currentWord.phonetic}</div>
+                        )}
+                        <span className="review-flip-hint">
+                          {flipMode === "tap" ? "Klepnutím odhalíš odpověď" : "Podržením na 0,5 sekundy odhalíš odpověď"}
+                        </span>
+                      </div>
+
+                      <div style={{ textAlign: "center", fontSize: "0.7rem", color: "#475569", marginTop: "2px" }}>
+                        Karta {currentIndex + 1} z {words.length} • Ebbinghaus SRS Algoritmus
+                      </div>
                     </div>
 
-                    {/* Answer Reveal Box (Czech + Collocations + 2 Context Examples) */}
                     <div
+                      className="review-card-face review-card-back"
                       data-card-flip-target=""
                       role="button"
-                      tabIndex={0}
-                      aria-label={showAnswer ? "Skrýt odpověď" : "Odhalit odpověď"}
-                      aria-expanded={showAnswer}
+                      tabIndex={showAnswer ? 0 : -1}
+                      aria-hidden={!showAnswer}
+                      aria-label="Skrýt odpověď"
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
-                          setShowAnswer((previous) => !previous);
+                          handleFlip();
                         }
                       }}
-                      style={{
-                        background: showAnswer ? "rgba(99, 102, 241, 0.12)" : "rgba(255, 255, 255, 0.03)",
-                        border: showAnswer ? "1px solid rgba(99, 102, 241, 0.3)" : "1px dashed rgba(255, 255, 255, 0.12)",
-                        padding: "10px 12px",
-                        borderRadius: "12px",
-                        maxHeight: "min(320px, 40dvh)",
-                        overflowY: "auto",
-                        overscrollBehavior: "contain",
-                        cursor: "pointer",
-                      }}
-                      className="no-scrollbar"
                     >
-                      {showAnswer ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                          <div style={{ fontSize: "1.15rem", fontWeight: "800", color: "#38bdf8" }}>
-                            {currentDirection === "en-to-cz" ? currentWord.czechTranslation : currentWord.text}
-                          </div>
-
-                          {currentWord.collocations && currentWord.collocations.length > 0 && (
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "2px" }}>
-                              {currentWord.collocations.map((col, idx) => (
-                                <span
-                                  key={idx}
-                                  style={{
-                                    background: "rgba(255, 255, 255, 0.08)",
-                                    border: "1px solid rgba(255, 255, 255, 0.12)",
-                                    padding: "2px 7px",
-                                    borderRadius: "6px",
-                                    fontSize: "0.72rem",
-                                    color: "#a5b4fc",
-                                    fontWeight: "600",
-                                  }}
-                                >
-                                  🔗 {col}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-
-                          <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "4px" }}>
-                            {currentWord.examples && currentWord.examples.map((ex, idx) => (
-                              <div
-                                key={idx}
-                                style={{
-                                  background: "rgba(0, 0, 0, 0.25)",
-                                  padding: "6px 8px",
-                                  borderRadius: "8px",
-                                  fontSize: "0.75rem",
-                                  lineHeight: "1.35",
-                                }}
-                              >
-                                <div style={{ color: "#38bdf8", fontStyle: "italic" }}>"{ex.en}"</div>
-                                {ex.cz && <div style={{ color: "#94a3b8", marginTop: "2px" }}>"{ex.cz}"</div>}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ) : (
-                        <div style={{ textAlign: "center", padding: "8px 0" }}>
-                          <div style={{ fontSize: "0.82rem", color: "#64748b", fontWeight: "600" }}>
-                            {flipMode === "tap" ? "👆 Klepnutím otočíš kartu" : "👆 Podržením na 0,5 s otočíš kartu"}
-                          </div>
-                        </div>
+                      <span className="review-step-label">ODPOVĚĎ</span>
+                      <h2 className="review-back-word">{currentAnswer}</h2>
+                      {currentDirection === "cz-to-en" && currentWord.phonetic && (
+                        <div className="review-phonetic">{currentWord.phonetic}</div>
                       )}
-                    </div>
-
-                    <div style={{ textAlign: "center", fontSize: "0.7rem", color: "#475569", marginTop: "2px" }}>
-                      Karta {currentIndex + 1} z {words.length} • Ebbinghaus SRS Algoritmus
+                      {currentWord.definition && <div className="review-back-definition">{currentWord.definition}</div>}
+                      {currentWord.collocations?.length ? (
+                        <div className="review-back-collocations">
+                          {currentWord.collocations.map((collocation) => <span key={collocation}>{collocation}</span>)}
+                        </div>
+                      ) : null}
+                      {currentWord.examples?.length ? (
+                        <div className="review-back-examples">
+                          {currentWord.examples.map((example) => (
+                            <div key={example.en}>
+                              <p>{example.en}</p>
+                              {example.cz && <p>{example.cz}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 )}
               </div>
 
               {/* Bottom Card Action Buttons */}
-              {currentPracticeMode === "typing" ? (
-                <form className="typing-controls" onSubmit={handleTypingSubmit}>
-                  <input
-                    aria-label="Napiš anglické slovo"
-                    autoComplete="off"
-                    autoCapitalize="none"
-                    disabled={!currentWord || isLoading || isFlyingOut !== null}
-                    onChange={(event) => setTypedAnswer(event.target.value)}
-                    placeholder="Napiš anglické slovo"
-                    type="text"
-                    value={typedAnswer}
-                  />
-                  <button className="btn-know" disabled={!typedAnswer.trim() || isLoading || isFlyingOut !== null} type="submit">
-                    Ověřit
-                  </button>
-                  {typingFeedback === "incorrect" && (
-                    <span aria-live="polite" className="typing-feedback">Zkus to znovu.</span>
-                  )}
-                </form>
-              ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "10px" }}>
-                  <button
-                    disabled={!currentWord || isLoading}
-                    onClick={(event) => { event.stopPropagation(); handleRepeat(); }}
-                    className="btn-repeat"
-                    style={{ padding: "13px", fontSize: "0.88rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", background: "linear-gradient(135deg, #f59e0b, #d97706)", color: "#fff" }}
-                  >
-                    <span>👈 Zopakovat</span>
-                    <span>🔄 </span>
-                  </button>
-                  <button
-                    disabled={!currentWord || isLoading}
-                    onClick={(event) => { event.stopPropagation(); handleKnown(); }}
-                    className="btn-know"
-                    style={{ padding: "13px", fontSize: "0.88rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", background: "linear-gradient(135deg, #10b981, #059669)", color: "#fff" }}
-                  >
-                    <span>✅ Umím to</span>
-                    <span>👉</span>
-                  </button>
-                </div>
-              )}
+              <div className="review-actions">
+                <button
+                  className="btn-repeat"
+                  disabled={!currentWord || isLoading || isFlyingOut !== null}
+                  onClick={handleRepeat}
+                  type="button"
+                >
+                  👈 Zopakovat
+                </button>
+                <button
+                  className="btn-know"
+                  disabled={!currentWord || isLoading || isFlyingOut !== null}
+                  onClick={handleKnown}
+                  type="button"
+                >
+                  ✅ Umím to
+                </button>
+              </div>
             </div>
           )}
 

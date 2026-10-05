@@ -1,7 +1,7 @@
 // pages/api/generateWords.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import type { PracticeMode, ReviewDirection } from "../../lib/learning";
+import type { ReviewDirection } from "../../lib/learning";
 
 export interface ExamplePair {
   en: string;
@@ -19,7 +19,7 @@ export interface VocabWord {
   level: "B2" | "C1";
   theme?: string;
   direction?: ReviewDirection;
-  practiceMode?: PracticeMode;
+  reviewStage?: number;
 }
 
 const FALLBACK_WORDS: VocabWord[] = [
@@ -102,25 +102,128 @@ const FALLBACK_WORDS: VocabWord[] = [
     ],
     level: "B2",
     theme: "Pokrok & Cíle"
+  },
+  {
+    id: "fallback_5",
+    text: "Commute",
+    phonetic: "/kəˈmjuːt/",
+    czechTranslation: "dojíždět, dojíždění",
+    definition: "To travel regularly between home and work or school.",
+    collocations: ["daily commute", "commute to work", "long commute"],
+    examples: [
+      { en: "She commutes to work by train every morning.", cz: "Každé ráno dojíždí do práce vlakem." },
+      { en: "A shorter commute would give him more time with his family.", cz: "Kratší dojíždění by mu dalo více času na rodinu." }
+    ],
+    level: "B2",
+    theme: "Cestování"
+  },
+  {
+    id: "fallback_6",
+    text: "Affordable",
+    phonetic: "/əˈfɔːr.də.bəl/",
+    czechTranslation: "cenově dostupný",
+    definition: "Not too expensive for most people to buy or use.",
+    collocations: ["affordable housing", "reasonably affordable", "affordable price"],
+    examples: [
+      { en: "The town offers affordable housing for young families.", cz: "Město nabízí cenově dostupné bydlení pro mladé rodiny." },
+      { en: "They found an affordable hotel near the station.", cz: "Našli cenově dostupný hotel poblíž nádraží." }
+    ],
+    level: "B2",
+    theme: "Peníze"
+  },
+  {
+    id: "fallback_7",
+    text: "Nourishing",
+    phonetic: "/ˈnɜːr.ɪ.ʃɪŋ/",
+    czechTranslation: "výživný, posilující",
+    definition: "Providing the food or care needed to stay healthy and strong.",
+    collocations: ["nourishing meal", "nourishing food", "highly nourishing"],
+    examples: [
+      { en: "A nourishing breakfast helped them stay focused all morning.", cz: "Výživná snídaně jim pomohla soustředit se celé dopoledne." },
+      { en: "The soup was warm, nourishing, and easy to prepare.", cz: "Polévka byla teplá, výživná a snadná na přípravu." }
+    ],
+    level: "C1",
+    theme: "Jídlo & Zdraví"
+  },
+  {
+    id: "fallback_8",
+    text: "Stumble upon",
+    phonetic: "/ˈstʌm.bəl əˌpɑːn/",
+    czechTranslation: "náhodou narazit na",
+    definition: "To find something unexpectedly or by chance.",
+    collocations: ["stumble upon an idea", "stumble upon a place", "unexpectedly stumble upon"],
+    examples: [
+      { en: "We stumbled upon a quiet café while exploring the old town.", cz: "Při procházení starého města jsme náhodou narazili na klidnou kavárnu." },
+      { en: "She stumbled upon an old photograph in the desk drawer.", cz: "V zásuvce stolu náhodou narazila na starou fotografii." }
+    ],
+    level: "B2",
+    theme: "Objevování"
+  },
+  {
+    id: "fallback_9",
+    text: "Foster",
+    phonetic: "/ˈfɑː.stər/",
+    czechTranslation: "podporovat, rozvíjet",
+    definition: "To help an idea, feeling, or relationship develop.",
+    collocations: ["foster creativity", "foster cooperation", "foster a relationship"],
+    examples: [
+      { en: "The new project aims to foster cooperation between local schools.", cz: "Nový projekt má za cíl podporovat spolupráci mezi místními školami." },
+      { en: "Open conversations can foster trust within a team.", cz: "Otevřené rozhovory mohou v týmu posilovat důvěru." }
+    ],
+    level: "C1",
+    theme: "Vztahy"
+  },
+  {
+    id: "fallback_10",
+    text: "Scarce",
+    phonetic: "/skers/",
+    czechTranslation: "vzácný, nedostatkový",
+    definition: "Available only in small amounts; not easy to find.",
+    collocations: ["scarce resources", "become scarce", "increasingly scarce"],
+    examples: [
+      { en: "Clean water is scarce in some parts of the region.", cz: "V některých částech regionu je čistá voda vzácná." },
+      { en: "Affordable apartments have become scarce in the city.", cz: "Cenově dostupných bytů je ve městě stále méně." }
+    ],
+    level: "C1",
+    theme: "Příroda"
+  },
+  {
+    id: "fallback_11",
+    text: "Overlook",
+    phonetic: "/ˌoʊ.vərˈlʊk/",
+    czechTranslation: "přehlédnout, opomenout",
+    definition: "To fail to notice or consider something important.",
+    collocations: ["overlook a detail", "easily overlooked", "overlook an opportunity"],
+    examples: [
+      { en: "It is easy to overlook a small detail when you are in a hurry.", cz: "Když spěcháte, snadno přehlédnete drobný detail." },
+      { en: "The report overlooked the needs of people living nearby.", cz: "Zpráva opomenula potřeby lidí žijících v okolí." }
+    ],
+    level: "B2",
+    theme: "Práce & Detail"
+  },
+  {
+    id: "fallback_12",
+    text: "Sustainable",
+    phonetic: "/səˈsteɪ.nə.bəl/",
+    czechTranslation: "udržitelný",
+    definition: "Able to continue for a long time without harming people or the environment.",
+    collocations: ["sustainable development", "sustainable energy", "environmentally sustainable"],
+    examples: [
+      { en: "The city is investing in sustainable public transport.", cz: "Město investuje do udržitelné veřejné dopravy." },
+      { en: "They are looking for more sustainable ways to package food.", cz: "Hledají udržitelnější způsoby balení potravin." }
+    ],
+    level: "C1",
+    theme: "Životní prostředí"
   }
 ];
 
-function getSeasonalContext(): string {
-  const now = new Date();
-  const month = now.getMonth() + 1;
-  const day = now.getDate();
-
-  if (month === 10 && day >= 20) return "Late October / Halloween / Autumn season (atmospheric, cozy, reflective or everyday terms)";
-  if (month === 10) return "October / Autumn cozy season (nature, mood, work, daily commute)";
-  if (month === 11) return "November / Late Autumn / Thanksgiving & cozy indoor routines";
-  if (month === 12) return "December / Winter & Christmas holidays & year-end reflections";
-  if (month === 1) return "January / New Year habits & winter focus";
-  if (month === 2) return "February / Winter & relationships & persistence";
-  if (month === 3 || month === 4) return "Spring & Easter / fresh energy & outdoors";
-  if (month === 5) return "May / Late Spring / social life & travel";
-  if (month === 6 || month === 7 || month === 8) return "Summer / Travel / Road trips & holidays";
-  if (month === 9) return "September / Back to study/work & autumn routines";
-  return "General everyday conversational and contextual English";
+function shuffle<T>(items: T[]): T[] {
+  const result = [...items];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
+  }
+  return result;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -130,13 +233,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const { count = 5, excludeWords = [] } = req.body;
+  const excludedWords = new Set(
+    Array.isArray(excludeWords) ? excludeWords.map((word: string) => word.toLowerCase()) : []
+  );
+  const availableFallbackWords = FALLBACK_WORDS.filter((word) => !excludedWords.has(word.text.toLowerCase()));
+  const fallbackWords = shuffle(availableFallbackWords.length > 0 ? availableFallbackWords : FALLBACK_WORDS)
+    .slice(0, count);
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey || apiKey === "YOUR_GEMINI_API_KEY") {
-    return res.status(200).json(FALLBACK_WORDS.slice(0, count));
+    return res.status(200).json(fallbackWords);
   }
-
-  const seasonalContext = getSeasonalContext();
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
@@ -147,8 +254,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const prompt = `You are an expert English vocabulary coach for Czech speakers learning on the go.
 Generate ${count} engaging English vocabulary words, idioms, or phrasal verbs smoothly mixed between B2 (Upper-Intermediate) and C1 (Advanced) levels.
 
-CURRENT SEASONAL & CALENDAR CONTEXT: "${seasonalContext}".
-Include relevant seasonal, atmospheric, everyday conversational, or practical vocabulary.
+Choose vocabulary randomly from a broad mix of unrelated topics and practical situations, such as work, travel, food, relationships, health, technology, nature, culture, money, and everyday life. Do not make the batch seasonal or stick to a single topic. When the batch has at least four words, use at least four different themes and avoid repeating a theme within the batch when possible.
 
 Exclude these already practiced words: ${JSON.stringify(excludeWords.slice(-40))}.
 
@@ -162,7 +268,7 @@ For each word, return a JSON array of objects with the following keys:
     - "en": English example sentence
     - "cz": Czech translation of that sentence
 - "level": Either "B2" or "C1"
-- "theme": Short 2-3 word topic in Czech (e.g. "Podzim & Nálada", "Práce & Úspěch", "Cestování", "Komunikace")
+- "theme": Short Czech category tag for the word (e.g. "Práce", "Cestování", "Jídlo", "Vztahy", "Technologie", "Příroda"). Spread the tags across different topics within this batch.
 
 Output ONLY a valid JSON array of objects, without markdown code fences.`;
 
@@ -195,6 +301,6 @@ Output ONLY a valid JSON array of objects, without markdown code fences.`;
     return res.status(200).json(formattedWords);
   } catch (error: any) {
     console.error("Gemini API error, falling back to offline dictionary:", error?.message || error);
-    return res.status(200).json(FALLBACK_WORDS.slice(0, count));
+    return res.status(200).json(fallbackWords);
   }
 }
