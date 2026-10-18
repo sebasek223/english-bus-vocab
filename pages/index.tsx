@@ -11,6 +11,45 @@ import {
 
 type TabType = "vocab" | "streak" | "progress" | "settings";
 
+export type HapticsIntensity = "light" | "medium" | "strong";
+
+const HAPTIC_PATTERNS: Record<
+  HapticsIntensity,
+  {
+    flip: number | number[];
+    hold: number | number[];
+    swipe: number | number[];
+    known: number | number[];
+    repeat: number | number[];
+    sample: number | number[];
+  }
+> = {
+  light: {
+    flip: 30,
+    hold: 35,
+    swipe: 22,
+    known: 55,
+    repeat: [35, 40, 35],
+    sample: 55,
+  },
+  medium: {
+    flip: 55,
+    hold: 65,
+    swipe: 35,
+    known: 85,
+    repeat: [55, 50, 55],
+    sample: 85,
+  },
+  strong: {
+    flip: 90,
+    hold: 110,
+    swipe: 55,
+    known: [130, 45, 130],
+    repeat: [90, 55, 90, 55, 90],
+    sample: [130, 45, 130],
+  },
+};
+
 export interface SRSRecord {
   text: string;
   czech: string;
@@ -103,6 +142,7 @@ export default function Home() {
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
   const [hapticsEnabled, setHapticsEnabled] = useState(false);
+  const [hapticsIntensity, setHapticsIntensity] = useState<HapticsIntensity>("strong");
   const [supportsVibration, setSupportsVibration] = useState(false);
   const [dailyReminderEnabled, setDailyReminderEnabled] = useState(false);
   const [dailyReminderTime, setDailyReminderTime] = useState("20:00");
@@ -142,7 +182,14 @@ export default function Home() {
       setFontScale(savedFontScale);
       setFlipMode(localStorage.getItem("vocab_card_flip_mode") === "hold" ? "hold" : "tap");
       setSupportsVibration(typeof navigator.vibrate === "function");
-      setHapticsEnabled(localStorage.getItem("vocab_haptics_enabled") === "true");
+      const savedHaptics = localStorage.getItem("vocab_haptics_enabled");
+      setHapticsEnabled(savedHaptics === null ? true : savedHaptics === "true");
+      const storedIntensity = localStorage.getItem("vocab_haptics_intensity") as HapticsIntensity;
+      const initialIntensity: HapticsIntensity =
+        storedIntensity === "light" || storedIntensity === "medium" || storedIntensity === "strong"
+          ? storedIntensity
+          : "strong";
+      setHapticsIntensity(initialIntensity);
       setDailyReminderTime(localStorage.getItem("vocab_daily_reminder_time") || "20:00");
 
       const canNotify = "Notification" in window;
@@ -227,10 +274,16 @@ export default function Home() {
     return () => window.clearTimeout(timer);
   }, [dailyReminderEnabled, dailyReminderTime, notificationPermission]);
 
-  // Subtle haptic feedback: short pulses for meaningful interactions only.
-  const haptic = (pattern: number | number[]) => {
-    if (!hapticsEnabled || typeof navigator === "undefined" || typeof navigator.vibrate !== "function") return;
+  // Configurable haptic feedback with multiple intensity levels
+  const triggerHaptic = (
+    type: "flip" | "hold" | "swipe" | "known" | "repeat" | "sample",
+    overrideIntensity?: HapticsIntensity
+  ) => {
+    if (!hapticsEnabled && !overrideIntensity) return;
+    if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") return;
     try {
+      const intensity = overrideIntensity || hapticsIntensity;
+      const pattern = HAPTIC_PATTERNS[intensity]?.[type] ?? 60;
       navigator.vibrate(pattern);
     } catch {
       // Vibration is optional and can be blocked by the browser/device.
@@ -240,6 +293,15 @@ export default function Home() {
   const handleHapticsChange = (enabled: boolean) => {
     setHapticsEnabled(enabled);
     localStorage.setItem("vocab_haptics_enabled", String(enabled));
+    if (enabled) {
+      triggerHaptic("sample");
+    }
+  };
+
+  const handleHapticsIntensityChange = (intensity: HapticsIntensity) => {
+    setHapticsIntensity(intensity);
+    localStorage.setItem("vocab_haptics_intensity", intensity);
+    triggerHaptic("sample", intensity);
   };
 
   const handleReminderToggle = async (enabled: boolean) => {
@@ -359,7 +421,7 @@ export default function Home() {
 
   const handleFlip = () => {
     if (!currentWord || isFlyingOut) return;
-    haptic(10);
+    triggerHaptic("flip");
     setShowAnswer((previous) => !previous);
   };
 
@@ -394,7 +456,7 @@ export default function Home() {
   // SRS Update: Move up in memory stages + Trigger Fanfare if daily target reached
   const handleKnown = () => {
     if (!currentWord || isFlyingOut) return;
-    haptic(14);
+    triggerHaptic("known");
     setIsFlyingOut("right");
 
     setTimeout(() => {
@@ -453,7 +515,7 @@ export default function Home() {
 
   const handleRepeat = () => {
     if (!currentWord || isFlyingOut) return;
-    haptic([18, 24, 12]);
+    triggerHaptic("repeat");
     setIsFlyingOut("left");
 
     setTimeout(() => {
@@ -524,7 +586,7 @@ export default function Home() {
       holdTimerRef.current = window.setTimeout(() => {
         if (swipeDirectionRef.current !== "undecided") return;
         holdTriggeredRef.current = true;
-        haptic(12);
+        triggerHaptic("hold");
         setIsDragging(false);
         handleFlip();
       }, 500);
@@ -560,7 +622,7 @@ export default function Home() {
     const nextSwipeState = deltaX > 75 ? "right" : deltaX < -75 ? "left" : "none";
     if (nextSwipeState !== swipeHapticStateRef.current) {
       swipeHapticStateRef.current = nextSwipeState;
-      if (nextSwipeState !== "none") haptic(8);
+      if (nextSwipeState !== "none") triggerHaptic("swipe");
     }
   };
 
@@ -832,9 +894,11 @@ export default function Home() {
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "stretch",
+                  justifyContent: "center",
                   position: "relative",
                   touchAction: "pan-y",
                   minHeight: 0,
+                  margin: "4px 0 16px 0",
                 }}
               >
                 {isLoading ? (
@@ -862,10 +926,12 @@ export default function Home() {
                     style={{
                       width: "100%",
                       flex: "1 1 0",
+                      maxHeight: "480px",
                       minHeight: 0,
                       padding: 0,
                       display: "block",
                       border: showAnswer ? "1px solid rgba(99, 102, 241, 0.4)" : "1px solid rgba(255, 255, 255, 0.1)",
+                      borderRadius: "22px",
                       cursor: "grab",
                       perspective: "1200px",
                       transform: cardTransform,
@@ -927,7 +993,7 @@ export default function Home() {
                       )}
 
                       {/* Level, Memory Stage & Audio */}
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", flexShrink: 0 }}>
                         <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                           <span
                             style={{
@@ -961,15 +1027,21 @@ export default function Home() {
                             e.stopPropagation();
                             playAudio(currentWord.text);
                           }}
+                          aria-label="Poslechnout výslovnost"
+                          title="Poslechnout výslovnost"
                           style={{
                             background: "rgba(255, 255, 255, 0.08)",
                             border: "none",
                             borderRadius: "50%",
-                            width: "34px",
-                            height: "34px",
-                            fontSize: "1rem",
+                            width: "36px",
+                            height: "36px",
+                            fontSize: "1.05rem",
                             cursor: "pointer",
                             color: isPlayingAudio ? "#818cf8" : "#ffffff",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            transition: "all 0.15s ease",
                           }}
                         >
                           🔊
@@ -991,7 +1063,6 @@ export default function Home() {
                           }
                         }}
                       >
-                       
                         <h2 className="review-front-word">{currentPrompt}</h2>
                         {currentWord.phonetic && (
                           <div className="review-phonetic">{currentWord.phonetic}</div>
@@ -1001,7 +1072,7 @@ export default function Home() {
                         </span>
                       </div>
 
-                      <div style={{ textAlign: "center", fontSize: "0.7rem", color: "#475569", marginTop: "2px" }}>
+                      <div style={{ textAlign: "center", fontSize: "0.7rem", color: "#64748b", marginTop: "2px", flexShrink: 0 }}>
                         Karta {currentIndex + 1} z {words.length} • Ebbinghaus SRS Algoritmus
                       </div>
                     </div>
@@ -1021,32 +1092,80 @@ export default function Home() {
                           }
                         }}
                       >
-                        {/* Badge + English word */}
+                        {/* Top bar with ODPOVĚĎ, level badge, and Audio button */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", flexShrink: 0 }}>
+                          <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                            <span className="review-step-label">ODPOVĚĎ</span>
+                            <span
+                              style={{
+                                fontSize: "0.72rem",
+                                fontWeight: "800",
+                                padding: "3px 9px",
+                                borderRadius: "6px",
+                                background: currentWord.level === "C1" ? "rgba(245, 158, 11, 0.2)" : "rgba(99, 102, 241, 0.2)",
+                                color: currentWord.level === "C1" ? "#fbbf24" : "#818cf8",
+                              }}
+                            >
+                              {currentWord.level}
+                            </span>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              playAudio(currentWord.text);
+                            }}
+                            aria-label="Poslechnout výslovnost"
+                            title="Poslechnout výslovnost"
+                            style={{
+                              background: "rgba(255, 255, 255, 0.08)",
+                              border: "none",
+                              borderRadius: "50%",
+                              width: "36px",
+                              height: "36px",
+                              fontSize: "1.05rem",
+                              cursor: "pointer",
+                              color: isPlayingAudio ? "#818cf8" : "#ffffff",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              transition: "all 0.15s ease",
+                            }}
+                          >
+                            🔊
+                          </button>
+                        </div>
+
+                        {/* English word + Phonetics + Czech translation box */}
                         <div className="review-back-header">
-                          <span className="review-step-label">ODPOVĚĎ</span>
-                          {/* English word highlighted */}
                           <div className="review-back-en-word">
                             {currentWord.text}
                           </div>
                           {currentWord.phonetic && (
                             <div className="review-phonetic">{currentWord.phonetic}</div>
                           )}
-                          {/* Czech translation – large */}
-                          <h2 className="review-back-word">{currentAnswer}</h2>
+                          <div className="review-back-cz-box">
+                            <div className="review-back-cz-label">Český překlad</div>
+                            <h2 className="review-back-word">{currentAnswer}</h2>
+                          </div>
                         </div>
 
                         {/* Definition */}
                         {currentWord.definition && (
-                          <div className="review-back-definition">{currentWord.definition}</div>
+                          <div className="review-back-definition">
+                            <span style={{ fontSize: "0.68rem", fontWeight: "700", color: "#818cf8", textTransform: "uppercase", display: "block", marginBottom: "2px" }}>
+                              Definice:
+                            </span>
+                            {currentWord.definition}
+                          </div>
                         )}
 
                         {/* Collocations */}
                         {currentWord.collocations?.length ? (
                           <div className="review-back-section">
-                            <span className="review-back-section-label">Využití</span>
+                            <span className="review-back-section-label">Typická spojení:</span>
                             <div className="review-back-collocations">
                               {currentWord.collocations.map((collocation) => (
-                                <span key={collocation}>{collocation}</span>
+                                <span key={collocation}>🔗 {collocation}</span>
                               ))}
                             </div>
                           </div>
@@ -1055,7 +1174,7 @@ export default function Home() {
                         {/* Examples */}
                         {currentWord.examples?.length ? (
                           <div className="review-back-section">
-                            <span className="review-back-section-label">Příklady</span>
+                            <span className="review-back-section-label">Příklady:</span>
                             <div className="review-back-examples">
                               {currentWord.examples.map((example) => (
                                 <div key={example.en} className="review-back-example-row">
@@ -1171,12 +1290,12 @@ export default function Home() {
               </section>
 
               <section className="settings-group" aria-labelledby="settings-practice-title">
-                <h2 className="settings-group-title" id="settings-practice-title">Procvičování</h2>
+                <h2 className="settings-group-title" id="settings-practice-title">Procvičování a haptika</h2>
                 <div className="settings-row">
                   <div className="settings-copy">
                     <label className="settings-label" htmlFor="haptics-toggle">Haptická odezva</label>
                     <p className="settings-description">
-                      {supportsVibration ? "Krátké zavibrování při hodnocení kartičky." : "Toto zařízení vibrace nepodporuje."}
+                      {supportsVibration ? "Zavibrování při ovládání a hodnocení kartiček." : "Toto zařízení vibrace nepodporuje."}
                     </p>
                   </div>
                   <input
@@ -1188,6 +1307,42 @@ export default function Home() {
                     onChange={(event) => handleHapticsChange(event.target.checked)}
                   />
                 </div>
+                {supportsVibration && (
+                  <div className="settings-row" style={{ opacity: hapticsEnabled ? 1 : 0.45 }}>
+                    <div className="settings-copy">
+                      <div className="settings-label">Síla vibrací</div>
+                      <p className="settings-description">
+                        Vyber sílu haptiky (při změně se přehraje ukázka).
+                      </p>
+                    </div>
+                    <div className="settings-segmented" role="group" aria-label="Síla vibrací">
+                      <button
+                        type="button"
+                        disabled={!hapticsEnabled}
+                        aria-pressed={hapticsIntensity === "light"}
+                        onClick={() => handleHapticsIntensityChange("light")}
+                      >
+                        Jemná
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!hapticsEnabled}
+                        aria-pressed={hapticsIntensity === "medium"}
+                        onClick={() => handleHapticsIntensityChange("medium")}
+                      >
+                        Střední
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!hapticsEnabled}
+                        aria-pressed={hapticsIntensity === "strong"}
+                        onClick={() => handleHapticsIntensityChange("strong")}
+                      >
+                        Silná
+                      </button>
+                    </div>
+                  </div>
+                )}
               </section>
 
               <section className="settings-group" aria-labelledby="settings-reminders-title">
