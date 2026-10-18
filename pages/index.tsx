@@ -858,19 +858,19 @@ export default function Home() {
         </header>
 
         {/* Main Single-Screen Content Area */}
-        <main style={{ flex: 1, padding: "14px 16px", display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
+        <main style={{ flex: 1, padding: "10px 14px", display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
           {/* TAB 1: SLOVÍČKA (SRS Flashcard View) */}
           {currentTab === "vocab" && (
             <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: 0 }}>
               {/* Top Sub-Header */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
                 <div
                   style={{
                     background: "rgba(99, 102, 241, 0.12)",
                     border: "1px solid rgba(99, 102, 241, 0.25)",
-                    padding: "3px 9px",
+                    padding: "4px 10px",
                     borderRadius: "10px",
-                    fontSize: "0.74rem",
+                    fontSize: "0.76rem",
                     fontWeight: "700",
                     color: "#a5b4fc",
                     display: "flex",
@@ -882,7 +882,7 @@ export default function Home() {
                   <span>{currentWord?.theme || stageLabels[currentStage]?.label || "B2 & C1 Mix"}</span>
                 </div>
 
-                <div style={{ fontSize: "0.78rem", color: "#94a3b8", fontWeight: "600" }}>
+                <div style={{ fontSize: "0.8rem", color: "#94a3b8", fontWeight: "600" }}>
                   Dnes: <strong style={{ color: "#38bdf8" }}>{learnedToday}/{dailyTarget}</strong>
                 </div>
               </div>
@@ -898,7 +898,7 @@ export default function Home() {
                   position: "relative",
                   touchAction: "pan-y",
                   minHeight: 0,
-                  margin: "4px 0 10px 0",
+                  margin: "4px 0 12px 0",
                 }}
               >
                 {isLoading ? (
@@ -925,13 +925,14 @@ export default function Home() {
                     className="glass-panel"
                     style={{
                       width: "100%",
-                      flex: "1 1 0",
-                      maxHeight: "600px",
+                      flex: "1 1 auto",
+                      height: "100%",
                       minHeight: 0,
                       padding: 0,
                       display: "block",
                       border: showAnswer ? "1px solid rgba(99, 102, 241, 0.4)" : "1px solid rgba(255, 255, 255, 0.1)",
-                      borderRadius: "22px",
+                      borderRadius: "24px",
+                      boxShadow: "0 10px 30px rgba(0, 0, 0, 0.25)",
                       cursor: "grab",
                       perspective: "1200px",
                       transform: cardTransform,
@@ -994,13 +995,13 @@ export default function Home() {
 
                       {/* Level, Memory Stage & Audio */}
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", flexShrink: 0 }}>
-                        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                           <span
                             style={{
-                              fontSize: "0.72rem",
+                              fontSize: "0.78rem",
                               fontWeight: "800",
-                              padding: "3px 9px",
-                              borderRadius: "6px",
+                              padding: "4px 10px",
+                              borderRadius: "8px",
                               background: currentWord.level === "C1" ? "rgba(245, 158, 11, 0.2)" : "rgba(99, 102, 241, 0.2)",
                               color: currentWord.level === "C1" ? "#fbbf24" : "#818cf8",
                             }}
@@ -1010,10 +1011,10 @@ export default function Home() {
 
                           <span
                             style={{
-                              fontSize: "0.68rem",
+                              fontSize: "0.74rem",
                               fontWeight: "700",
-                              padding: "3px 7px",
-                              borderRadius: "6px",
+                              padding: "4px 9px",
+                              borderRadius: "8px",
                               background: "rgba(255, 255, 255, 0.06)",
                               color: stageLabels[currentStage]?.color || "#94a3b8",
                             }}
@@ -1033,9 +1034,9 @@ export default function Home() {
                             background: "rgba(255, 255, 255, 0.08)",
                             border: "none",
                             borderRadius: "50%",
-                            width: "36px",
-                            height: "36px",
-                            fontSize: "1.05rem",
+                            width: "40px",
+                            height: "40px",
+                            fontSize: "1.15rem",
                             cursor: "pointer",
                             color: isPlayingAudio ? "#818cf8" : "#ffffff",
                             display: "flex",
@@ -1072,7 +1073,7 @@ export default function Home() {
                         </span>
                       </div>
 
-                      <div style={{ textAlign: "center", fontSize: "0.7rem", color: "#64748b", marginTop: "2px", flexShrink: 0 }}>
+                      <div style={{ textAlign: "center", fontSize: "0.72rem", color: "#64748b", marginTop: "4px", flexShrink: 0 }}>
                         Karta {currentIndex + 1} z {words.length} • Ebbinghaus SRS Algoritmus
                       </div>
                     </div>
@@ -1093,15 +1094,15 @@ export default function Home() {
                         }}
                       >
                         {/* Top bar with ODPOVĚĎ, level badge, and Audio button */}
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", flexShrink: 0, marginBottom: "6px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", flexShrink: 0, marginBottom: "8px" }}>
                           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                             <span className="review-step-label">ODPOVĚĎ</span>
                             <span
                               style={{
-                                fontSize: "0.74rem",
+                                fontSize: "0.78rem",
                                 fontWeight: "800",
-                                padding: "3px 10px",
-                                borderRadius: "6px",
+                                padding: "4px 10px",
+                                borderRadius: "8px",
                                 background: currentWord.level === "C1" ? "rgba(245, 158, 11, 0.2)" : "rgba(99, 102, 241, 0.2)",
                                 color: currentWord.level === "C1" ? "#fbbf24" : "#818cf8",
                               }}
@@ -1120,9 +1121,9 @@ export default function Home() {
                               background: "rgba(255, 255, 255, 0.08)",
                               border: "none",
                               borderRadius: "50%",
-                              width: "36px",
-                              height: "36px",
-                              fontSize: "1.05rem",
+                              width: "40px",
+                              height: "40px",
+                              fontSize: "1.15rem",
                               cursor: "pointer",
                               color: isPlayingAudio ? "#818cf8" : "#ffffff",
                               display: "flex",

@@ -59,7 +59,7 @@ html, body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: clamp(12px, 3.5vw, 18px);
+  padding: clamp(16px, 4.5vw, 24px);
   border-radius: inherit;
   background: inherit;
   backface-visibility: hidden;
@@ -80,8 +80,8 @@ html, body {
   text-align: left;
   height: 100%;
   width: 100%;
-  gap: 12px;
-  padding: clamp(14px, 3.8vw, 20px) !important;
+  gap: clamp(10px, 2.5vw, 15px);
+  padding: clamp(16px, 4.5vw, 24px) !important;
   overflow-y: auto;
   scrollbar-width: thin;
 }
@@ -92,19 +92,19 @@ html, body {
   align-items: center;
   justify-content: center;
   flex: 1;
-  gap: clamp(10px, 2.5vw, 16px);
+  gap: clamp(12px, 3vw, 20px);
   text-align: center;
   cursor: pointer;
 }
 
 .review-step-label {
   display: inline-block;
-  font-size: 0.64rem;
+  font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-muted);
-  padding: 3px 10px;
+  padding: 4px 11px;
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -113,12 +113,12 @@ html, body {
 
 .review-flip-hint {
   color: var(--text-muted);
-  font-size: clamp(0.68rem, 2vw, 0.76rem);
+  font-size: clamp(0.72rem, 2.2vw, 0.82rem);
 }
 
 .review-phonetic {
   color: var(--text-muted);
-  font-size: clamp(0.82rem, 2.5vw, 0.95rem);
+  font-size: clamp(0.88rem, 2.8vw, 1.05rem);
   font-style: italic;
   letter-spacing: 0.02em;
 }
@@ -129,13 +129,13 @@ html, body {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 3px;
+  gap: 4px;
   width: 100%;
   margin-bottom: 2px;
 }
 
 .review-back-en-word {
-  font-size: clamp(1.6rem, 5.5vw, 2.2rem);
+  font-size: clamp(1.85rem, 6.2vw, 2.5rem);
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1.15;
@@ -146,7 +146,7 @@ html, body {
 }
 
 .review-back-cz-highlight {
-  font-size: clamp(1.35rem, 4.8vw, 1.75rem);
+  font-size: clamp(1.45rem, 5vw, 1.95rem);
   font-weight: 800;
   line-height: 1.25;
   color: #38bdf8;
@@ -157,8 +157,8 @@ html, body {
 .review-back-divider {
   width: 100%;
   height: 1px;
-  background: rgba(255, 255, 255, 0.08);
-  margin: 4px 0 6px 0;
+  background: rgba(255, 255, 255, 0.09);
+  margin: 6px 0 8px 0;
   flex-shrink: 0;
 }
 
@@ -167,12 +167,12 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 6px;
+  gap: 7px;
   margin-top: 2px;
 }
 
 .review-back-section-label {
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -182,28 +182,28 @@ html, body {
 .review-back-definition {
   width: 100%;
   color: #e2e8f0;
-  font-size: clamp(0.8rem, 2.4vw, 0.88rem);
-  line-height: 1.5;
+  font-size: clamp(0.85rem, 2.6vw, 0.94rem);
+  line-height: 1.55;
   text-align: left;
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 12px;
-  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 12px 16px;
 }
 
 .review-back-collocations {
   display: flex;
   flex-wrap: wrap;
-  gap: 7px;
+  gap: 8px;
 }
 
 .review-back-collocations span {
-  padding: 5px 12px;
-  border: 1px solid rgba(99, 102, 241, 0.3);
-  border-radius: 16px;
+  padding: 6px 14px;
+  border: 1px solid rgba(99, 102, 241, 0.32);
+  border-radius: 18px;
   background: rgba(99, 102, 241, 0.12);
   color: #c7d2fe;
-  font-size: clamp(0.7rem, 2.1vw, 0.78rem);
+  font-size: clamp(0.74rem, 2.3vw, 0.84rem);
   font-weight: 600;
 }
 
@@ -211,32 +211,32 @@ html, body {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .review-back-example-row {
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 12px;
-  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 12px 16px;
   text-align: left;
 }
 
 .review-back-example-en {
   color: #f1f5f9;
-  font-size: clamp(0.78rem, 2.3vw, 0.86rem);
+  font-size: clamp(0.82rem, 2.5vw, 0.92rem);
   font-weight: 600;
-  line-height: 1.45;
+  line-height: 1.5;
   margin: 0;
 }
 
 .review-back-example-cz {
   color: var(--text-muted);
-  font-size: clamp(0.72rem, 2.1vw, 0.78rem);
+  font-size: clamp(0.76rem, 2.3vw, 0.84rem);
   font-style: italic;
-  line-height: 1.4;
-  margin-top: 4px;
-  opacity: 0.9;
+  line-height: 1.45;
+  margin-top: 5px;
+  opacity: 0.92;
 }
 
 .review-actions {
@@ -249,11 +249,11 @@ html, body {
 }
 
 .review-actions button {
-  min-height: 50px;
-  padding: clamp(10px, 3vw, 13px);
-  font-size: clamp(0.82rem, 2.5vw, 0.9rem);
-  font-weight: 700;
-  border-radius: 14px;
+  min-height: 52px;
+  padding: clamp(10px, 3vw, 14px);
+  font-size: clamp(0.86rem, 2.7vw, 0.96rem);
+  font-weight: 750;
+  border-radius: 16px;
   border: none;
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
@@ -886,10 +886,10 @@ html[data-theme="light"] .btn-repeat {
 
 /* Front‑side large English word */
 .review-front-word {
-  font-size: clamp(1.9rem, 6.5vw, 2.7rem);
-  font-weight: 800;
+  font-size: clamp(2.3rem, 7.8vw, 3.4rem);
+  font-weight: 900;
   line-height: 1.15;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
   color: #38bdf8;
   margin: 0;
 }
