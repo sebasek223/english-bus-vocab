@@ -898,7 +898,7 @@ export default function Home() {
                   position: "relative",
                   touchAction: "pan-y",
                   minHeight: 0,
-                  margin: "4px 0 16px 0",
+                  margin: "4px 0 10px 0",
                 }}
               >
                 {isLoading ? (
@@ -926,7 +926,7 @@ export default function Home() {
                     style={{
                       width: "100%",
                       flex: "1 1 0",
-                      maxHeight: "480px",
+                      maxHeight: "560px",
                       minHeight: 0,
                       padding: 0,
                       display: "block",
