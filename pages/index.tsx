@@ -926,7 +926,7 @@ export default function Home() {
                     style={{
                       width: "100%",
                       flex: "1 1 0",
-                      maxHeight: "560px",
+                      maxHeight: "600px",
                       minHeight: 0,
                       padding: 0,
                       display: "block",
@@ -1093,14 +1093,14 @@ export default function Home() {
                         }}
                       >
                         {/* Top bar with ODPOVĚĎ, level badge, and Audio button */}
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", flexShrink: 0 }}>
-                          <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", flexShrink: 0, marginBottom: "6px" }}>
+                          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                             <span className="review-step-label">ODPOVĚĎ</span>
                             <span
                               style={{
-                                fontSize: "0.72rem",
+                                fontSize: "0.74rem",
                                 fontWeight: "800",
-                                padding: "3px 9px",
+                                padding: "3px 10px",
                                 borderRadius: "6px",
                                 background: currentWord.level === "C1" ? "rgba(245, 158, 11, 0.2)" : "rgba(99, 102, 241, 0.2)",
                                 color: currentWord.level === "C1" ? "#fbbf24" : "#818cf8",
@@ -1135,7 +1135,7 @@ export default function Home() {
                           </button>
                         </div>
 
-                        {/* English word + Phonetics + Czech translation box */}
+                        {/* Word header: English word, Phonetics & Czech translation */}
                         <div className="review-back-header">
                           <div className="review-back-en-word">
                             {currentWord.text}
@@ -1143,26 +1143,27 @@ export default function Home() {
                           {currentWord.phonetic && (
                             <div className="review-phonetic">{currentWord.phonetic}</div>
                           )}
-                          <div className="review-back-cz-box">
-                            <div className="review-back-cz-label">Český překlad</div>
-                            <h2 className="review-back-word">{currentAnswer}</h2>
+                          <div className="review-back-cz-highlight">
+                            {currentAnswer}
                           </div>
                         </div>
 
+                        <div className="review-back-divider" />
+
                         {/* Definition */}
                         {currentWord.definition && (
-                          <div className="review-back-definition">
-                            <span style={{ fontSize: "0.68rem", fontWeight: "700", color: "#818cf8", textTransform: "uppercase", display: "block", marginBottom: "2px" }}>
-                              Definice:
-                            </span>
-                            {currentWord.definition}
+                          <div className="review-back-section">
+                            <span className="review-back-section-label">Definice</span>
+                            <div className="review-back-definition">
+                              {currentWord.definition}
+                            </div>
                           </div>
                         )}
 
                         {/* Collocations */}
                         {currentWord.collocations?.length ? (
                           <div className="review-back-section">
-                            <span className="review-back-section-label">Typická spojení:</span>
+                            <span className="review-back-section-label">Typická spojení</span>
                             <div className="review-back-collocations">
                               {currentWord.collocations.map((collocation) => (
                                 <span key={collocation}>🔗 {collocation}</span>
@@ -1174,7 +1175,7 @@ export default function Home() {
                         {/* Examples */}
                         {currentWord.examples?.length ? (
                           <div className="review-back-section">
-                            <span className="review-back-section-label">Příklady:</span>
+                            <span className="review-back-section-label">Příklady</span>
                             <div className="review-back-examples">
                               {currentWord.examples.map((example) => (
                                 <div key={example.en} className="review-back-example-row">
