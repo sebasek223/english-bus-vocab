@@ -319,7 +319,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // configurable for deployments, while using the current stable Flash API
     // model by default.
     const model = genAI.getGenerativeModel({
-      model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+      model: process.env.GEMINI_MODEL || "gemini-3.8-flash",
     });
 
     const prompt = `You are an expert English vocabulary coach for Czech speakers learning on the go.

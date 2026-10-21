@@ -35,8 +35,8 @@ A **Next.js** web app that helps you learn English vocabulary (B2‑C1 level) ev
    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
    NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
    GEMINI_API_KEY=your_gemini_api_key
-   # Optional; defaults to gemini-2.5-flash
-   GEMINI_MODEL=gemini-2.5-flash
+   # Optional; defaults to gemini-3.8-flash
+   GEMINI_MODEL=gemini-3.8-flash
    ```
 5. Run the development server:
    ```bash
