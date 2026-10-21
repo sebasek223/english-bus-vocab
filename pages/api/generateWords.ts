@@ -217,6 +217,72 @@ const FALLBACK_WORDS: VocabWord[] = [
   }
 ];
 
+// This offline reserve keeps the learning flow usable if Gemini is temporarily
+// unavailable or a deployment is missing its server-side API key.
+const EXTRA_FALLBACK_WORDS: VocabWord[] = [
+  ["Accomplish", "dosáhnout, splnit", "To succeed in doing or completing something.", "B2", "Cíle"],
+  ["Adaptable", "přizpůsobivý", "Able to change easily to suit a new situation.", "B2", "Práce"],
+  ["Advocate", "zastánce; prosazovat", "A person who publicly supports an idea, or to support it.", "C1", "Společnost"],
+  ["Allocate", "přidělit", "To give something to a particular person or purpose.", "C1", "Práce"],
+  ["Ambiguous", "nejednoznačný", "Having more than one possible meaning.", "C1", "Komunikace"],
+  ["Anticipate", "předvídat, očekávat", "To expect something and prepare for it.", "B2", "Plánování"],
+  ["Approach", "přístup; přiblížit se", "A way of dealing with a problem or task.", "B2", "Práce"],
+  ["Aware", "vědomý si", "Knowing that something exists or is happening.", "B2", "Každodenní život"],
+  ["Beneficial", "prospěšný", "Having a helpful or positive effect.", "C1", "Zdraví"],
+  ["Breakthrough", "průlom", "An important discovery or development.", "C1", "Technologie"],
+  ["Cautious", "opatrný", "Careful to avoid possible problems or danger.", "B2", "Každodenní život"],
+  ["Coherent", "souvislý, srozumitelný", "Logical, clear, and easy to understand.", "C1", "Komunikace"],
+  ["Compelling", "přesvědčivý, poutavý", "Very interesting or convincing.", "C1", "Kultura"],
+  ["Convey", "sdělit, vyjádřit", "To communicate an idea or feeling.", "C1", "Komunikace"],
+  ["Crucial", "zásadní", "Extremely important for a result or decision.", "B2", "Práce"],
+  ["Deteriorate", "zhoršovat se", "To become worse over time.", "C1", "Zdraví"],
+  ["Diverse", "rozmanitý", "Including many different types of people or things.", "B2", "Společnost"],
+  ["Efficient", "efektivní", "Working well without wasting time or energy.", "B2", "Práce"],
+  ["Eligible", "oprávněný", "Allowed to take part in or receive something.", "C1", "Práce"],
+  ["Enhance", "zlepšit, posílit", "To improve the quality or value of something.", "C1", "Rozvoj"],
+  ["Ethical", "etický", "Relating to ideas about what is morally right.", "C1", "Společnost"],
+  ["Exceed", "překročit", "To be greater than a number, limit, or expectation.", "B2", "Práce"],
+  ["Feasible", "proveditelný", "Possible and likely to be achieved.", "C1", "Plánování"],
+  ["Fluctuate", "kolísat", "To change frequently in level, amount, or value.", "C1", "Peníze"],
+  ["Fundamental", "základní", "Forming the most important part of something.", "B2", "Vzdělávání"],
+  ["Hesitate", "váhat", "To pause before doing something because you are unsure.", "B2", "Každodenní život"],
+  ["Implement", "zavést, realizovat", "To put a plan or decision into effect.", "C1", "Práce"],
+  ["Inevitable", "nevyhnutelný", "Certain to happen and impossible to avoid.", "C1", "Každodenní život"],
+  ["Innovative", "inovativní", "Using new ideas or methods.", "B2", "Technologie"],
+  ["Maintain", "udržovat", "To keep something at the same level or condition.", "B2", "Práce"],
+  ["Mutual", "vzájemný", "Felt or done equally by two or more people.", "C1", "Vztahy"],
+  ["Notion", "představa, názor", "A belief or idea about something.", "C1", "Myšlení"],
+  ["Obtain", "získat", "To get something, especially through effort.", "B2", "Práce"],
+  ["Outcome", "výsledek", "The result of an action or situation.", "B2", "Cíle"],
+  ["Persuade", "přesvědčit", "To make someone do or believe something through reasoning.", "B2", "Komunikace"],
+  ["Precise", "přesný", "Exact and accurate.", "B2", "Práce"],
+  ["Preserve", "zachovat, uchovat", "To keep something in its original or good condition.", "C1", "Příroda"],
+  ["Prioritize", "upřednostnit", "To decide that something is more important than other things.", "C1", "Plánování"],
+  ["Reluctant", "neochotný", "Unwilling and hesitant to do something.", "C1", "Každodenní život"],
+  ["Reliable", "spolehlivý", "Able to be trusted to work well or behave well.", "B2", "Práce"],
+  ["Resolve", "vyřešit", "To find a satisfactory solution to a problem.", "B2", "Práce"],
+  ["Restrict", "omezit", "To limit something or keep it within bounds.", "C1", "Společnost"],
+  ["Significant", "významný", "Large or important enough to have an effect.", "B2", "Práce"],
+  ["Simultaneous", "současný", "Happening at the same time.", "C1", "Každodenní život"],
+  ["Tendency", "tendence, sklon", "A likely habit or way of behaving.", "C1", "Chování"],
+  ["Thrive", "prospívat", "To grow, develop, or be successful.", "C1", "Rozvoj"],
+  ["Versatile", "všestranný", "Able to adapt to many different activities or uses.", "C1", "Práce"],
+  ["Vulnerable", "zranitelný", "Able to be easily harmed or affected.", "C1", "Společnost"],
+  ["Withdraw", "stáhnout se; vybrat", "To remove something or move away from a situation.", "B2", "Peníze"],
+] .map(([text, czechTranslation, definition, level, theme], index): VocabWord => ({
+  id: `offline_${index + 1}`,
+  text,
+  phonetic: "",
+  czechTranslation,
+  definition,
+  collocations: [],
+  examples: [],
+  level: level as "B2" | "C1",
+  theme,
+}));
+
+const ALL_FALLBACK_WORDS = [...FALLBACK_WORDS, ...EXTRA_FALLBACK_WORDS];
+
 function shuffle<T>(items: T[]): T[] {
   const result = [...items];
   for (let index = result.length - 1; index > 0; index -= 1) {
@@ -237,7 +303,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const excludedWords = new Set(
     Array.isArray(excludeWords) ? excludeWords.map((word: string) => word.toLowerCase()) : []
   );
-  const availableFallbackWords = FALLBACK_WORDS.filter((word) => !excludedWords.has(word.text.toLowerCase()));
+  const availableFallbackWords = ALL_FALLBACK_WORDS.filter((word) => !excludedWords.has(word.text.toLowerCase()));
   // Never silently recycle already learned offline words as “new”. The client
   // can now show a useful retry state instead of teaching a duplicate.
   const fallbackWords = shuffle(availableFallbackWords).slice(0, requestedCount);
