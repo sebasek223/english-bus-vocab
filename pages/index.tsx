@@ -77,11 +77,48 @@ const SRS_INTERVALS_DAYS = [1, 3, 7, 14, 30, 60];
 const FONT_SCALE_MIN = 85;
 const FONT_SCALE_MAX = 125;
 const FONT_SCALE_STEP = 5;
+const ACTIVE_QUEUE_STORAGE_KEY = "vocab_active_queue_v1";
+
+function getLocalDateKey(date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function readStoredJson<T>(key: string, fallback: T): T {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? (JSON.parse(value) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+async function showDailyReminder() {
+  const options = {
+    body: "Dej si pár minut procvičování slovíček.",
+    icon: "/icon.svg",
+    badge: "/icon.svg",
+    tag: "daily-vocabulary-reminder",
+    renotify: true,
+  };
+
+  if ("serviceWorker" in navigator) {
+    const registration = await navigator.serviceWorker.ready;
+    await registration.showNotification("Čas na angličtinu", options);
+    return;
+  }
+
+  new Notification("Čas na angličtinu", options);
+}
 
 function addDaysToDate(dateStr: string, days: number): string {
-  const d = new Date(dateStr);
+  // Date-only strings are interpreted as UTC by JavaScript. Noon keeps this
+  // calculation on the selected local calendar day across timezone changes.
+  const d = new Date(`${dateStr}T12:00:00`);
   d.setDate(d.getDate() + days);
-  return d.toISOString().split("T")[0];
+  return getLocalDateKey(d);
 }
 
 // Synthesized triumph fanfare using Web Audio API (works 100% offline)
@@ -132,6 +169,8 @@ export default function Home() {
   const [weeklyHistory, setWeeklyHistory] = useState<{ [dateKey: string]: number }>({});
   const [activityLog, setActivityLog] = useState<DailyActivityLog>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [hasLoadedPersistence, setHasLoadedPersistence] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
   // Celebration state
@@ -170,6 +209,11 @@ export default function Home() {
         window.matchMedia("(display-mode: standalone)").matches ||
         (window.navigator as any).standalone === true;
       setIsStandalone(isStandaloneMode);
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/sw.js").catch((error) => {
+          console.warn("Service worker se nepodařilo zaregistrovat:", error);
+        });
+      }
       const savedTheme = localStorage.getItem("vocab_theme") === "light" ? "light" : "dark";
       document.documentElement.dataset.theme = savedTheme;
       document.documentElement.style.colorScheme = savedTheme;
@@ -206,12 +250,13 @@ export default function Home() {
         setDeferredPrompt(e);
       });
 
-      const today = new Date().toISOString().split("T")[0];
+      const today = getLocalDateKey();
       const savedDate = localStorage.getItem("vocab_last_date");
       const savedStreak = parseInt(localStorage.getItem("vocab_streak") || "1", 10);
       const savedTarget = parseInt(localStorage.getItem("vocab_target") || "10", 10);
-      const savedSRS: SRSRecord[] = JSON.parse(localStorage.getItem("vocab_srs_records_v1") || "[]");
-      const savedHistory: { [dateKey: string]: number } = JSON.parse(localStorage.getItem("vocab_daily_counts") || "{}");
+      const savedSRS = readStoredJson<SRSRecord[]>("vocab_srs_records_v1", []);
+      const savedHistory = readStoredJson<{ [dateKey: string]: number }>("vocab_daily_counts", {});
+      const savedQueue = readStoredJson<VocabWord[]>(ACTIVE_QUEUE_STORAGE_KEY, []);
 
       setDailyTarget(savedTarget);
       setSrsRecords(savedSRS);
@@ -231,7 +276,7 @@ export default function Home() {
       } else {
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
-        const yDateStr = yesterday.toISOString().split("T")[0];
+        const yDateStr = getLocalDateKey(yesterday);
 
         if (savedDate === yDateStr) {
           setStreak(savedStreak);
@@ -244,9 +289,24 @@ export default function Home() {
         localStorage.setItem("vocab_last_date", today);
       }
 
-      fetchSmartWordsQueue(savedSRS);
+      if (Array.isArray(savedQueue) && savedQueue.length > 0) {
+        setWords(savedQueue);
+        setCurrentIndex(0);
+      } else {
+        fetchSmartWordsQueue(savedSRS);
+      }
+      setHasLoadedPersistence(true);
     }
   }, []);
+
+  useEffect(() => {
+    if (!hasLoadedPersistence) return;
+    if (words.length > 0) {
+      localStorage.setItem(ACTIVE_QUEUE_STORAGE_KEY, JSON.stringify(words.slice(currentIndex)));
+    } else if (!isLoading) {
+      localStorage.removeItem(ACTIVE_QUEUE_STORAGE_KEY);
+    }
+  }, [words, currentIndex, isLoading]);
 
   useEffect(() => {
     if (!dailyReminderEnabled || notificationPermission !== "granted") return;
@@ -261,10 +321,7 @@ export default function Home() {
 
       timer = window.setTimeout(() => {
         if (Notification.permission === "granted") {
-          new Notification("Čas na angličtinu", {
-            body: "Dej si pár minut procvičování slovíček.",
-            icon: "/icon.svg",
-          });
+          void showDailyReminder().catch((error) => console.warn("Připomínku se nepodařilo zobrazit:", error));
         }
         scheduleNextReminder();
       }, nextReminder.getTime() - now.getTime());
@@ -326,6 +383,12 @@ export default function Home() {
     localStorage.setItem("vocab_daily_reminder_time", time);
   };
 
+  const handleReminderTest = () => {
+    if (Notification.permission === "granted") {
+      void showDailyReminder().catch((error) => console.warn("Test připomínky selhal:", error));
+    }
+  };
+
   const handleThemeChange = (nextTheme: "dark" | "light") => {
     setTheme(nextTheme);
     localStorage.setItem("vocab_theme", nextTheme);
@@ -359,11 +422,12 @@ export default function Home() {
   // Smart SRS Queue
   const fetchSmartWordsQueue = async (currentSRS = srsRecords) => {
     setIsLoading(true);
+    setLoadError(null);
     setShowAnswer(false);
     setDragOffset({ x: 0, y: 0 });
     setIsFlyingOut(null);
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = getLocalDateKey();
     const dueWords: SRSRecord[] = currentSRS.filter((r) => r.nextReviewDate <= today);
 
     const dueVocabWords: VocabWord[] = dueWords.slice(0, 3).map((r) => ({
@@ -395,19 +459,42 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ count: neededNewCount, excludeWords: excludeList }),
       });
-      const newAiWords: VocabWord[] = await res.json();
+      if (!res.ok) {
+        throw new Error(`Server vrátil chybu ${res.status}.`);
+      }
+      const response: unknown = await res.json();
+      if (!Array.isArray(response)) {
+        throw new Error("Server neposlal seznam slovíček.");
+      }
+      const knownWords = new Set(currentSRS.map((record) => record.text.trim().toLowerCase()));
+      const newAiWords = response.filter(
+        (word): word is VocabWord =>
+          typeof word === "object" &&
+          word !== null &&
+          typeof (word as VocabWord).text === "string" &&
+          !knownWords.has((word as VocabWord).text.trim().toLowerCase())
+      );
       const shuffledNewWords = [...newAiWords];
       for (let index = shuffledNewWords.length - 1; index > 0; index -= 1) {
         const swapIndex = Math.floor(Math.random() * (index + 1));
         [shuffledNewWords[index], shuffledNewWords[swapIndex]] = [shuffledNewWords[swapIndex], shuffledNewWords[index]];
       }
-      setWords(prepareQueue([...dueVocabWords, ...shuffledNewWords]));
+      const queue = prepareQueue([...dueVocabWords, ...shuffledNewWords]);
+      if (queue.length === 0) {
+        throw new Error("Nenalezla se žádná nová slovíčka. Zkus to prosím za chvíli znovu.");
+      }
+      setWords(queue);
       setCurrentIndex(0);
     } catch (e) {
       console.error(e);
       if (dueVocabWords.length > 0) {
         setWords(prepareQueue(dueVocabWords));
         setCurrentIndex(0);
+        setLoadError("Nová slovíčka se nepodařilo načíst. Zobrazujeme alespoň výrazy k opakování.");
+      } else {
+        setWords([]);
+        setCurrentIndex(0);
+        setLoadError(e instanceof Error ? e.message : "Nová slovíčka se nepodařilo načíst.");
       }
     } finally {
       setIsLoading(false);
@@ -426,11 +513,8 @@ export default function Home() {
   };
 
   const recordReviewActivity = () => {
-    const today = new Date().toISOString().split("T")[0];
-    const savedLog = migrateDailyActivityLog(
-      JSON.parse(localStorage.getItem("vocab_review_activity_v1") || "{}"),
-      dailyTarget
-    );
+    const today = getLocalDateKey();
+    const savedLog = migrateDailyActivityLog(readStoredJson<unknown>("vocab_review_activity_v1", {}), dailyTarget);
     const todayActivity = savedLog[today] || { reviewed: 0, goal: Math.max(1, dailyTarget) };
     const updatedLog = {
       ...savedLog,
@@ -460,7 +544,7 @@ export default function Home() {
     setIsFlyingOut("right");
 
     setTimeout(() => {
-      const today = new Date().toISOString().split("T")[0];
+      const today = getLocalDateKey();
       recordReviewActivity();
       const newLearned = learnedToday + 1;
       setLearnedToday(newLearned);
@@ -509,7 +593,7 @@ export default function Home() {
         setShowCelebration(true);
       }
 
-      nextCard();
+      nextCard(true, updatedSRSList);
     }, 220);
   };
 
@@ -519,7 +603,7 @@ export default function Home() {
     setIsFlyingOut("left");
 
     setTimeout(() => {
-      const today = new Date().toISOString().split("T")[0];
+      const today = getLocalDateKey();
       recordReviewActivity();
       const existingRecord = srsRecords.find((r) => r.text.toLowerCase() === currentWord.text.toLowerCase());
       const resetStage = 0;
@@ -556,7 +640,7 @@ export default function Home() {
     }, 220);
   };
 
-  const nextCard = (advance = true) => {
+  const nextCard = (advance = true, recordsForNextQueue = srsRecords) => {
     setShowAnswer(false);
     setDragOffset({ x: 0, y: 0 });
     setIsFlyingOut(null);
@@ -564,7 +648,7 @@ export default function Home() {
       if (currentIndex + 1 < words.length) {
         setCurrentIndex((i) => i + 1);
       } else {
-        fetchSmartWordsQueue();
+        fetchSmartWordsQueue(recordsForNextQueue);
       }
     }
   };
@@ -671,12 +755,12 @@ export default function Home() {
   const get7DayChartData = (): DayData[] => {
     const dayNames = ["NE", "PO", "ÚT", "ST", "ČT", "PÁ", "SO"];
     const result: DayData[] = [];
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = getLocalDateKey();
 
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      const dateKey = d.toISOString().split("T")[0];
+      const dateKey = getLocalDateKey(d);
       const dayName = i === 0 ? "Dnes" : dayNames[d.getDay()];
       const count = dateKey === todayStr ? learnedToday : (weeklyHistory[dateKey] || 0);
 
@@ -736,7 +820,7 @@ export default function Home() {
   };
 
   // SRS Memory Breakdown stats
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = getLocalDateKey();
   const dueTodayCount = srsRecords.filter((r) => r.nextReviewDate <= todayStr).length;
   const shortTermCount = srsRecords.filter((r) => r.stage >= 1 && r.stage <= 2).length;
   const mediumTermCount = srsRecords.filter((r) => r.stage >= 3 && r.stage <= 4).length;
@@ -909,11 +993,15 @@ export default function Home() {
                   </div>
                 ) : !currentWord ? (
                   <div className="glass-panel" style={{ padding: "24px", textAlign: "center", width: "100%" }}>
-                    <div style={{ fontSize: "2rem", marginBottom: "8px" }}>🎉</div>
-                    <div style={{ fontWeight: "800", fontSize: "1.1rem", marginBottom: "6px" }}>Všechna slova pro dnešek hotova!</div>
-                    <p style={{ fontSize: "0.82rem", color: "#94a3b8", marginBottom: "16px" }}>Paměťové intervaly jsou nastaveny.</p>
+                    <div style={{ fontSize: "2rem", marginBottom: "8px" }}>{loadError ? "⚠️" : "🎉"}</div>
+                    <div style={{ fontWeight: "800", fontSize: "1.1rem", marginBottom: "6px" }}>
+                      {loadError ? "Slovíčka se nepodařilo načíst" : "Všechna slova pro dnešek hotova!"}
+                    </div>
+                    <p style={{ fontSize: "0.82rem", color: "#94a3b8", marginBottom: "16px" }}>
+                      {loadError || "Paměťové intervaly jsou nastaveny."}
+                    </p>
                     <button onClick={() => fetchSmartWordsQueue()} className="btn-primary" style={{ padding: "10px 20px", fontSize: "0.88rem" }}>
-                      ⚡ Další várka slovíček
+                      ↻ Načíst nová slovíčka
                     </button>
                   </div>
                 ) : (
@@ -1365,16 +1453,26 @@ export default function Home() {
                 </div>
 
                 {dailyReminderEnabled && (
-                  <div className="settings-row">
-                    <label className="settings-label" htmlFor="daily-reminder-time">Čas upozornění</label>
-                    <input
-                      className="settings-time-input"
-                      id="daily-reminder-time"
-                      type="time"
-                      value={dailyReminderTime}
-                      onChange={(event) => handleReminderTimeChange(event.target.value)}
-                    />
-                  </div>
+                  <>
+                    <div className="settings-row">
+                      <label className="settings-label" htmlFor="daily-reminder-time">Čas upozornění</label>
+                      <input
+                        className="settings-time-input"
+                        id="daily-reminder-time"
+                        type="time"
+                        value={dailyReminderTime}
+                        onChange={(event) => handleReminderTimeChange(event.target.value)}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={handleReminderTest}
+                      style={{ alignSelf: "flex-start", padding: "8px 12px", fontSize: "0.82rem" }}
+                    >
+                      🔔 Otestovat upozornění
+                    </button>
+                  </>
                 )}
 
                 <p className="settings-note">
@@ -1382,7 +1480,7 @@ export default function Home() {
                     ? "Notifikace tento prohlížeč nepodporuje."
                     : notificationPermission === "denied"
                     ? "Notifikace jsou zablokované v nastavení prohlížeče."
-                    : "Připomínka se zobrazí, když aplikace zůstane otevřená. Pro upozornění po zavření bude potřeba push služba."}
+                    : "Připomínka je připravená v aplikaci. Upozornění po úplném zavření vyžaduje zapnutý push server."}
                 </p>
               </section>
             </div>

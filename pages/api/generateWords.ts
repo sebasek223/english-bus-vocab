@@ -233,12 +233,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const { count = 5, excludeWords = [] } = req.body;
+  const requestedCount = Number.isInteger(count) ? Math.min(10, Math.max(1, count)) : 5;
   const excludedWords = new Set(
     Array.isArray(excludeWords) ? excludeWords.map((word: string) => word.toLowerCase()) : []
   );
   const availableFallbackWords = FALLBACK_WORDS.filter((word) => !excludedWords.has(word.text.toLowerCase()));
-  const fallbackWords = shuffle(availableFallbackWords.length > 0 ? availableFallbackWords : FALLBACK_WORDS)
-    .slice(0, count);
+  // Never silently recycle already learned offline words as “new”. The client
+  // can now show a useful retry state instead of teaching a duplicate.
+  const fallbackWords = shuffle(availableFallbackWords).slice(0, requestedCount);
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey || apiKey === "YOUR_GEMINI_API_KEY") {
@@ -252,7 +254,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     const prompt = `You are an expert English vocabulary coach for Czech speakers learning on the go.
-Generate ${count} engaging English vocabulary words, idioms, or phrasal verbs smoothly mixed between B2 (Upper-Intermediate) and C1 (Advanced) levels.
+Generate ${requestedCount} engaging English vocabulary words, idioms, or phrasal verbs smoothly mixed between B2 (Upper-Intermediate) and C1 (Advanced) levels.
 
 Choose vocabulary randomly from a broad mix of unrelated topics and practical situations, such as work, travel, food, relationships, health, technology, nature, culture, money, and everyday life. Do not make the batch seasonal or stick to a single topic. When the batch has at least four words, use at least four different themes and avoid repeating a theme within the batch when possible.
 
@@ -280,8 +282,15 @@ Output ONLY a valid JSON array of objects, without markdown code fences.`;
       text = text.replace(/^```\s*/, "").replace(/\s*```$/, "");
     }
 
-    const parsed = JSON.parse(text);
-    const formattedWords: VocabWord[] = parsed.map((item: any) => ({
+    const parsed: unknown = JSON.parse(text);
+    if (!Array.isArray(parsed)) {
+      throw new Error("Gemini response is not a JSON array");
+    }
+    const formattedWords: VocabWord[] = parsed
+      .filter((item: unknown): item is Record<string, any> =>
+        typeof item === "object" && item !== null && typeof (item as { text?: unknown }).text === "string"
+      )
+      .map((item) => ({
       id: `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       text: item.text,
       phonetic: item.phonetic || "",
@@ -294,9 +303,14 @@ Output ONLY a valid JSON array of objects, without markdown code fences.`;
             cz: typeof ex === "object" && ex.cz ? ex.cz : "",
           }))
         : [{ en: item.example || "", cz: item.exampleCzech || "" }],
-      level: item.level === "C1" ? "C1" : "B2",
+      level: item.level === "C1" ? ("C1" as const) : ("B2" as const),
       theme: item.theme || "Slovní zásoba",
-    }));
+      }))
+      .filter((word) => !excludedWords.has(word.text.trim().toLowerCase()));
+
+    if (formattedWords.length === 0) {
+      throw new Error("Gemini did not return any new vocabulary");
+    }
 
     return res.status(200).json(formattedWords);
   } catch (error: any) {
