@@ -403,6 +403,13 @@ export default function Home() {
     document.documentElement.style.fontSize = `${value}%`;
   };
 
+  const handleResetQueue = () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(ACTIVE_QUEUE_STORAGE_KEY);
+      window.location.reload();
+    }
+  };
+
   const handleInstallClick = async () => {
     if (deferredPrompt) {
       deferredPrompt.prompt();
@@ -1389,6 +1396,32 @@ export default function Home() {
               </section>
 
               <section className="settings-group" aria-labelledby="settings-practice-title">
+                <h2 className="settings-group-title" id="settings-practice-title">Procvičování a haptika</h2>
+                <div className="settings-row">
+                  <div className="settings-copy">
+                    <div className="settings-label">Obnovit frontu karet</div>
+                    <p className="settings-description">
+                      Smaže načtený balíček a z AI stáhne nová slovíčka. Pokrok a křivka zapomínání zůstanou zachovány.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleResetQueue}
+                    style={{
+                      padding: "8px 12px",
+                      fontSize: "0.82rem",
+                      borderRadius: "10px",
+                      background: "rgba(239, 68, 68, 0.15)",
+                      border: "1px solid rgba(239, 68, 68, 0.35)",
+                      color: "#fca5a5",
+                      fontWeight: "700",
+                      cursor: "pointer",
+                      whiteSpace: "nowrap"
+                    }}
+                  >
+                    🔄 Načíst novou frontu
+                  </button>
+                </div>
                 <h2 className="settings-group-title" id="settings-practice-title">Procvičování a haptika</h2>
                 <div className="settings-row">
                   <div className="settings-copy">
