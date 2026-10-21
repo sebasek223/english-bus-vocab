@@ -172,6 +172,7 @@ export default function Home() {
 
   // Celebration state
   const [showCelebration, setShowCelebration] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
 
   // Install PWA state
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -403,7 +404,7 @@ export default function Home() {
     document.documentElement.style.fontSize = `${value}%`;
   };
 
-  const handleResetQueue = () => {
+  const handleConfirmResetQueue = () => {
     if (typeof window !== "undefined") {
       localStorage.removeItem(ACTIVE_QUEUE_STORAGE_KEY);
       window.location.reload();
@@ -1500,23 +1501,49 @@ export default function Home() {
                 </p>
               </section>
 
-              <div style={{ textAlign: "center", marginTop: "20px", marginBottom: "10px" }}>
-                <button
-                  type="button"
-                  onClick={handleResetQueue}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: "#64748b",
-                    fontSize: "0.72rem",
-                    textDecoration: "underline",
-                    cursor: "pointer",
-                    padding: "6px",
-                  }}
-                >
-                  🔄 Obnovit načtenou frontu karet
-                </button>
-              </div>
+              <section
+                className="settings-group"
+                aria-labelledby="settings-danger-title"
+                style={{
+                  marginTop: "24px",
+                  border: "1px solid rgba(239, 68, 68, 0.3)",
+                  background: "rgba(239, 68, 68, 0.05)",
+                  borderRadius: "16px",
+                  padding: "16px",
+                }}
+              >
+                <h2 className="settings-group-title" id="settings-danger-title" style={{ color: "#fca5a5" }}>
+                  ⚠️ Nebezpečná zóna
+                </h2>
+                <div className="settings-row" style={{ borderBottom: "none", paddingBottom: 0 }}>
+                  <div className="settings-copy">
+                    <div className="settings-label" style={{ color: "#f87171", fontWeight: "700" }}>
+                      Vyčistit dočasnou frontu
+                    </div>
+                    <p className="settings-description" style={{ color: "#94a3b8" }}>
+                      Zahodí neprohlédnuté karty na obrazovce a stáhne nová slovíčka.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowResetModal(true)}
+                    style={{
+                      padding: "8px 14px",
+                      fontSize: "0.82rem",
+                      borderRadius: "10px",
+                      background: "rgba(239, 68, 68, 0.2)",
+                      border: "1px solid rgba(239, 68, 68, 0.45)",
+                      color: "#fca5a5",
+                      fontWeight: "700",
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      boxShadow: "0 2px 8px rgba(239, 68, 68, 0.2)",
+                    }}
+                  >
+                    🗑️ Vyčistit frontu
+                  </button>
+                </div>
+              </section>
             </div>
           )}
 
@@ -1827,6 +1854,94 @@ export default function Home() {
               >
                 Paráda, pokračovat! 🚀
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Reset Confirmation Modal */}
+        {showResetModal && (
+          <div
+            onClick={() => setShowResetModal(false)}
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: "rgba(0, 0, 0, 0.82)",
+              backdropFilter: "blur(12px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "20px",
+              zIndex: 200,
+              animation: "fadeIn 0.25s ease",
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="glass-panel"
+              style={{
+                maxWidth: "360px",
+                width: "100%",
+                padding: "24px 20px",
+                textAlign: "center",
+                background: "linear-gradient(135deg, rgba(239, 68, 68, 0.18), rgba(18, 24, 38, 0.95))",
+                border: "1px solid rgba(239, 68, 68, 0.45)",
+                boxShadow: "0 10px 40px rgba(239, 68, 68, 0.25)",
+              }}
+            >
+              <div style={{ fontSize: "2.5rem", marginBottom: "6px" }}>⚠️</div>
+              <h3 style={{ fontSize: "1.2rem", fontWeight: "800", color: "#fca5a5", marginBottom: "12px" }}>
+                Vyčistit dočasnou frontu?
+              </h3>
+
+              <div style={{ textAlign: "left", fontSize: "0.82rem", lineHeight: "1.5", color: "#cbd5e1", marginBottom: "20px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                <div style={{ background: "rgba(239, 68, 68, 0.12)", padding: "10px", borderRadius: "10px", border: "1px solid rgba(239, 68, 68, 0.25)" }}>
+                  <strong style={{ color: "#fca5a5" }}>Co se stane:</strong> Smažou se pouze neprohlédnuté karty v paměti a ze serveru se stáhne čerstvá sada.
+                </div>
+                <div style={{ background: "rgba(16, 185, 129, 0.12)", padding: "10px", borderRadius: "10px", border: "1px solid rgba(16, 185, 129, 0.25)" }}>
+                  <strong style={{ color: "#6ee7b7" }}>Co zůstane:</strong> Všechna naučená slovíčka, SRS fáze zapomínání, streak i kalendář jsou 100% v bezpečí!
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: "10px" }}>
+                <button
+                  type="button"
+                  onClick={() => setShowResetModal(false)}
+                  style={{
+                    flex: 1,
+                    padding: "11px",
+                    borderRadius: "10px",
+                    background: "rgba(255, 255, 255, 0.08)",
+                    border: "1px solid rgba(255, 255, 255, 0.15)",
+                    color: "#cbd5e1",
+                    fontWeight: "700",
+                    fontSize: "0.88rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  Zrušit
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmResetQueue}
+                  style={{
+                    flex: 1,
+                    padding: "11px",
+                    borderRadius: "10px",
+                    background: "linear-gradient(135deg, #ef4444, #dc2626)",
+                    border: "none",
+                    color: "#ffffff",
+                    fontWeight: "800",
+                    fontSize: "0.88rem",
+                    boxShadow: "0 4px 15px rgba(239, 68, 68, 0.4)",
+                    cursor: "pointer",
+                  }}
+                >
+                  Vyčistit
+                </button>
+              </div>
             </div>
           </div>
         )}
