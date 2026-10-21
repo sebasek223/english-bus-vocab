@@ -170,7 +170,7 @@ export default function Home() {
   const [hasLoadedPersistence, setHasLoadedPersistence] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
-  // Celebration state
+  // Celebration & Modals
   const [showCelebration, setShowCelebration] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
 
@@ -541,7 +541,7 @@ export default function Home() {
     }
   };
 
-  // SRS Update: Preserve existing record details (collocations, definition, etc.)
+  // SRS Update: Preserve existing record details
   const handleKnown = () => {
     if (!currentWord || isFlyingOut) return;
     triggerHaptic("known");
