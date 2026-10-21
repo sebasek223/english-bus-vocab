@@ -114,14 +114,11 @@ async function showDailyReminder() {
 }
 
 function addDaysToDate(dateStr: string, days: number): string {
-  // Date-only strings are interpreted as UTC by JavaScript. Noon keeps this
-  // calculation on the selected local calendar day across timezone changes.
   const d = new Date(`${dateStr}T12:00:00`);
   d.setDate(d.getDate() + days);
   return getLocalDateKey(d);
 }
 
-// Synthesized triumph fanfare using Web Audio API (works 100% offline)
 function playFanfareSound() {
   if (typeof window === "undefined") return;
   try {
@@ -130,11 +127,11 @@ function playFanfareSound() {
     const ctx = new AudioContextClass();
 
     const notes = [
-      { freq: 523.25, time: 0.0, dur: 0.12 }, // C5
-      { freq: 659.25, time: 0.12, dur: 0.12 }, // E5
-      { freq: 783.99, time: 0.24, dur: 0.15 }, // G5
-      { freq: 1046.5, time: 0.38, dur: 0.6 }, // C6
-      { freq: 1318.51, time: 0.5, dur: 0.7 }, // E6
+      { freq: 523.25, time: 0.0, dur: 0.12 },
+      { freq: 659.25, time: 0.12, dur: 0.12 },
+      { freq: 783.99, time: 0.24, dur: 0.15 },
+      { freq: 1046.5, time: 0.38, dur: 0.6 },
+      { freq: 1318.51, time: 0.5, dur: 0.7 },
     ];
 
     notes.forEach((n) => {
@@ -331,7 +328,6 @@ export default function Home() {
     return () => window.clearTimeout(timer);
   }, [dailyReminderEnabled, dailyReminderTime, notificationPermission]);
 
-  // Configurable haptic feedback with multiple intensity levels
   const triggerHaptic = (
     type: "flip" | "hold" | "swipe" | "known" | "repeat" | "sample",
     overrideIntensity?: HapticsIntensity
@@ -343,7 +339,7 @@ export default function Home() {
       const pattern = HAPTIC_PATTERNS[intensity]?.[type] ?? 60;
       navigator.vibrate(pattern);
     } catch {
-      // Vibration is optional and can be blocked by the browser/device.
+      // Ignore
     }
   };
 
@@ -537,7 +533,7 @@ export default function Home() {
     }
   };
 
-  // SRS Update: Move up in memory stages + Trigger Fanfare if daily target reached
+  // SRS Update: Preserve existing record details (collocations, definition, etc.)
   const handleKnown = () => {
     if (!currentWord || isFlyingOut) return;
     triggerHaptic("known");
@@ -564,10 +560,14 @@ export default function Home() {
         czech: currentWord.czechTranslation,
         level: currentWord.level,
         theme: currentWord.theme,
-        phonetic: currentWord.phonetic,
-        definition: currentWord.definition,
-        collocations: currentWord.collocations,
-        examples: currentWord.examples,
+        phonetic: currentWord.phonetic || existingRecord?.phonetic,
+        definition: currentWord.definition || existingRecord?.definition,
+        collocations: (currentWord.collocations && currentWord.collocations.length > 0)
+          ? currentWord.collocations
+          : existingRecord?.collocations || [],
+        examples: (currentWord.examples && currentWord.examples.length > 0)
+          ? currentWord.examples
+          : existingRecord?.examples || [],
         direction: "en-to-cz",
         stage: nextStage,
         nextReviewDate,
@@ -582,13 +582,11 @@ export default function Home() {
       setSrsRecords(updatedSRSList);
       localStorage.setItem("vocab_srs_records_v1", JSON.stringify(updatedSRSList));
 
-      // Trigger Celebration Fanfare + Confetti when reaching daily target
       if (newLearned >= dailyTarget && learnedToday < dailyTarget) {
         const newStreak = streak + 1;
         setStreak(newStreak);
         localStorage.setItem("vocab_streak", newStreak.toString());
 
-        // Play fanfare sound and show modal
         playFanfareSound();
         setShowCelebration(true);
       }
@@ -614,10 +612,14 @@ export default function Home() {
         czech: currentWord.czechTranslation,
         level: currentWord.level,
         theme: currentWord.theme,
-        phonetic: currentWord.phonetic,
-        definition: currentWord.definition,
-        collocations: currentWord.collocations,
-        examples: currentWord.examples,
+        phonetic: currentWord.phonetic || existingRecord?.phonetic,
+        definition: currentWord.definition || existingRecord?.definition,
+        collocations: (currentWord.collocations && currentWord.collocations.length > 0)
+          ? currentWord.collocations
+          : existingRecord?.collocations || [],
+        examples: (currentWord.examples && currentWord.examples.length > 0)
+          ? currentWord.examples
+          : existingRecord?.examples || [],
         direction: "en-to-cz",
         stage: resetStage,
         nextReviewDate,
@@ -702,7 +704,6 @@ export default function Home() {
 
     setDragOffset({ x: deltaX, y: 0 });
 
-    // One tiny pulse when the swipe becomes actionable. No vibration spam while dragging.
     const nextSwipeState = deltaX > 75 ? "right" : deltaX < -75 ? "left" : "none";
     if (nextSwipeState !== swipeHapticStateRef.current) {
       swipeHapticStateRef.current = nextSwipeState;
@@ -841,7 +842,6 @@ export default function Home() {
     { label: "Trvalá paměť", icon: "🏆", color: "#10b981" },
   ];
 
-  const progressPercent = Math.min(100, Math.round((learnedToday / dailyTarget) * 100));
   const chartDays = get7DayChartData();
   const maxBarCount = Math.max(dailyTarget, ...chartDays.map((d) => d.count), 1);
   const userRank = getRank(srsRecords.length);
@@ -864,7 +864,6 @@ export default function Home() {
 
   const isSwipingRight = dragOffset.x > 30;
   const isSwipingLeft = dragOffset.x < -30;
-  const cardVisualTransform = `${cardTransform} rotateY(${showAnswer ? 180 : 0}deg)`;
 
   return (
     <>
@@ -1240,41 +1239,51 @@ export default function Home() {
                         <div className="review-back-divider" />
 
                         {/* Definition */}
-                        {currentWord.definition && (
-                          <div className="review-back-section">
-                            <span className="review-back-section-label">Definice</span>
-                            <div className="review-back-definition">
-                              {currentWord.definition}
-                            </div>
+                        <div className="review-back-section">
+                          <span className="review-back-section-label">Definice</span>
+                          <div className="review-back-definition">
+                            {currentWord.definition || (
+                              <span style={{ fontSize: "0.78rem", color: "#64748b", fontStyle: "italic" }}>
+                                Definice pro toto slovo není k dispozici.
+                              </span>
+                            )}
                           </div>
-                        )}
+                        </div>
 
                         {/* Collocations */}
-                        {currentWord.collocations?.length ? (
-                          <div className="review-back-section">
-                            <span className="review-back-section-label">Typická spojení</span>
-                            <div className="review-back-collocations">
-                              {currentWord.collocations.map((collocation) => (
+                        <div className="review-back-section">
+                          <span className="review-back-section-label">Typická spojení</span>
+                          <div className="review-back-collocations">
+                            {currentWord.collocations && currentWord.collocations.length > 0 ? (
+                              currentWord.collocations.map((collocation) => (
                                 <span key={collocation}>🔗 {collocation}</span>
-                              ))}
-                            </div>
+                              ))
+                            ) : (
+                              <span style={{ fontSize: "0.78rem", color: "#64748b", fontStyle: "italic" }}>
+                                Pro toto slovo nejsou k dispozici žádná typická spojení.
+                              </span>
+                            )}
                           </div>
-                        ) : null}
+                        </div>
 
                         {/* Examples */}
-                        {currentWord.examples?.length ? (
-                          <div className="review-back-section">
-                            <span className="review-back-section-label">Příklady</span>
-                            <div className="review-back-examples">
-                              {currentWord.examples.map((example) => (
-                                <div key={example.en} className="review-back-example-row">
+                        <div className="review-back-section">
+                          <span className="review-back-section-label">Příklady</span>
+                          <div className="review-back-examples">
+                            {currentWord.examples && currentWord.examples.length > 0 ? (
+                              currentWord.examples.map((example, idx) => (
+                                <div key={idx} className="review-back-example-row">
                                   <p className="review-back-example-en">{example.en}</p>
                                   {example.cz && <p className="review-back-example-cz">{example.cz}</p>}
                                 </div>
-                              ))}
-                            </div>
+                              ))
+                            ) : (
+                              <span style={{ fontSize: "0.78rem", color: "#64748b", fontStyle: "italic" }}>
+                                Příklady použití nejsou k dispozici.
+                              </span>
+                            )}
                           </div>
-                        ) : null}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1723,7 +1732,7 @@ export default function Home() {
           </button>
         </nav>
 
-        {/* Celebratory Daily Streak Modal with Fanfare + Confetti */}
+        {/* Celebratory Daily Streak Modal */}
         {showCelebration && (
           <div
             onClick={() => setShowCelebration(false)}
@@ -1758,7 +1767,6 @@ export default function Home() {
                 overflow: "hidden",
               }}
             >
-              {/* Confetti particles */}
               <div style={{ position: "absolute", top: "10px", left: "15px", fontSize: "1.4rem" }}>🎉</div>
               <div style={{ position: "absolute", top: "15px", right: "20px", fontSize: "1.4rem" }}>✨</div>
               <div style={{ position: "absolute", bottom: "20px", left: "20px", fontSize: "1.2rem" }}>🎊</div>
