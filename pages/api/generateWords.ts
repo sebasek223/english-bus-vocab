@@ -249,8 +249,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
+    // 1.5 Flash is retired for many Gemini API projects. Keep the model
+    // configurable for deployments, while using the current stable Flash API
+    // model by default.
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
     });
 
     const prompt = `You are an expert English vocabulary coach for Czech speakers learning on the go.
