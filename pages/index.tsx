@@ -200,18 +200,22 @@ export default function Home() {
   const holdTriggeredRef = useRef(false);
   const swipeHapticStateRef = useRef<"none" | "left" | "right">("none");
 
-  // Load persistence and PWA detection
+  // Load persistence and PWA detection with forced Service Worker update
   useEffect(() => {
     if (typeof window !== "undefined") {
       const isStandaloneMode =
         window.matchMedia("(display-mode: standalone)").matches ||
         (window.navigator as any).standalone === true;
       setIsStandalone(isStandaloneMode);
+
       if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register("/sw.js").catch((error) => {
+        navigator.serviceWorker.register("/sw.js").then((reg) => {
+          reg.update();
+        }).catch((error) => {
           console.warn("Service worker se nepodařilo zaregistrovat:", error);
         });
       }
+
       const savedTheme = localStorage.getItem("vocab_theme") === "light" ? "light" : "dark";
       document.documentElement.dataset.theme = savedTheme;
       document.documentElement.style.colorScheme = savedTheme;
@@ -541,7 +545,6 @@ export default function Home() {
     }
   };
 
-  // SRS Update: Preserve existing record details
   const handleKnown = () => {
     if (!currentWord || isFlyingOut) return;
     triggerHaptic("known");
@@ -663,7 +666,6 @@ export default function Home() {
     }
   };
 
-  // Touch / Drag Gesture Handlers
   const handleTouchStart = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!currentWord || isFlyingOut) return;
     if (e.pointerType === "mouse" && e.button !== 0) return;
@@ -760,7 +762,6 @@ export default function Home() {
     setDragOffset({ x: 0, y: 0 });
   };
 
-  // Generate 7-day chart data
   const get7DayChartData = (): DayData[] => {
     const dayNames = ["NE", "PO", "ÚT", "ST", "ČT", "PÁ", "SO"];
     const result: DayData[] = [];
@@ -783,7 +784,6 @@ export default function Home() {
     return result;
   };
 
-  // Calendar generation for current month
   const renderCalendar = () => {
     const now = new Date();
     const year = now.getFullYear();
@@ -828,7 +828,6 @@ export default function Home() {
     return { title: "Začínající Cestovatel", icon: "🥉", color: "#10b981" };
   };
 
-  // SRS Memory Breakdown stats
   const todayStr = getLocalDateKey();
   const dueTodayCount = srsRecords.filter((r) => r.nextReviewDate <= todayStr).length;
   const shortTermCount = srsRecords.filter((r) => r.stage >= 1 && r.stage <= 2).length;
@@ -854,7 +853,6 @@ export default function Home() {
   const maxBarCount = Math.max(dailyTarget, ...chartDays.map((d) => d.count), 1);
   const userRank = getRank(srsRecords.length);
 
-  // Compute card transform while dragging or flying out
   let cardTransform = "translate3d(0,0,0) rotate(0deg)";
   let cardTransition = isDragging ? "none" : "transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease";
   let cardOpacity = 1;
@@ -882,7 +880,6 @@ export default function Home() {
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
         <meta name="theme-color" content={theme === "light" ? "#f4f7fb" : "#090d16"} />
 
-        {/* PWA Standalone Fullscreen Meta Tags */}
         <meta name="application-name" content="BusVocab" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -892,7 +889,6 @@ export default function Home() {
       </Head>
 
       <div className="app-shell" data-theme={theme} style={{ display: "flex", flexDirection: "column", height: "100dvh", maxWidth: "480px", margin: "0 auto", width: "100%" }}>
-        {/* Top Minimal Header */}
         <header
           style={{
             padding: "12px 16px",
@@ -948,12 +944,9 @@ export default function Home() {
           </div>
         </header>
 
-        {/* Main Single-Screen Content Area */}
         <main style={{ flex: 1, padding: "10px 14px", display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
-          {/* TAB 1: SLOVÍČKA (SRS Flashcard View) */}
           {currentTab === "vocab" && (
             <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: 0 }}>
-              {/* Top Sub-Header */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
                 <div
                   style={{
@@ -978,7 +971,6 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Centered Flashcard with Swipe & Touch gestures */}
               <div
                 style={{
                   flex: 1,
@@ -1046,7 +1038,6 @@ export default function Home() {
                         className="review-card-face review-card-front"
                         style={{ zIndex: showAnswer ? 0 : 1 }}
                       >
-                      {/* Swipe Visual Cue Indicators */}
                       {isSwipingRight && (
                         <div
                           style={{
@@ -1088,7 +1079,6 @@ export default function Home() {
                         </div>
                       )}
 
-                      {/* Level, Memory Stage & Audio */}
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", flexShrink: 0 }}>
                         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                           <span
@@ -1188,7 +1178,6 @@ export default function Home() {
                           }
                         }}
                       >
-                        {/* Top bar with ODPOVĚĎ, level badge, and Audio button */}
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", flexShrink: 0, marginBottom: "8px" }}>
                           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                             <span className="review-step-label">ODPOVĚĎ</span>
@@ -1231,7 +1220,6 @@ export default function Home() {
                           </button>
                         </div>
 
-                        {/* Word header: English word, Phonetics & Czech translation */}
                         <div className="review-back-header">
                           <div className="review-back-en-word">
                             {currentWord.text}
@@ -1246,7 +1234,6 @@ export default function Home() {
 
                         <div className="review-back-divider" />
 
-                        {/* Definition */}
                         <div className="review-back-section">
                           <span className="review-back-section-label">Definice</span>
                           <div className="review-back-definition">
@@ -1258,7 +1245,6 @@ export default function Home() {
                           </div>
                         </div>
 
-                        {/* Collocations */}
                         <div className="review-back-section">
                           <span className="review-back-section-label">Typická spojení</span>
                           <div className="review-back-collocations">
@@ -1274,7 +1260,6 @@ export default function Home() {
                           </div>
                         </div>
 
-                        {/* Examples */}
                         <div className="review-back-section">
                           <span className="review-back-section-label">Příklady</span>
                           <div className="review-back-examples">
@@ -1298,7 +1283,6 @@ export default function Home() {
                 )}
               </div>
 
-              {/* Bottom Card Action Buttons */}
               <div className="review-actions">
                 <button
                   className="btn-repeat"
@@ -1547,7 +1531,6 @@ export default function Home() {
             </div>
           )}
 
-          {/* TAB 2: STREAK & KALENDÁŘ */}
           {currentTab === "streak" && (
             <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
               <div
@@ -1598,10 +1581,8 @@ export default function Home() {
             </div>
           )}
 
-          {/* TAB 3: PROGRES & KŘIVKA ZAPOMÍNÁNÍ */}
           {currentTab === "progress" && (
             <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "10px", overflow: "hidden" }}>
-              {/* Rank & Level Badge */}
               <div
                 className="glass-panel"
                 style={{
@@ -1626,7 +1607,6 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Spaced Repetition Breakdown */}
               <div className="glass-panel" style={{ padding: "12px 14px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -1661,7 +1641,6 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* 7-Day Activity Chart */}
               <div className="glass-panel" style={{ padding: "12px 14px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
                   <span style={{ fontSize: "0.8rem", fontWeight: "700", color: "#f8fafc" }}>📈 Aktivita za 7 dní</span>
@@ -1702,7 +1681,6 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Learned Words Mini List */}
               <div className="glass-panel no-scrollbar" style={{ flex: 1, padding: "10px 12px", overflowY: "auto", minHeight: "60px" }}>
                 <div style={{ fontSize: "0.72rem", fontWeight: "700", marginBottom: "6px", color: "#94a3b8" }}>
                   SLOVNÍK & PAMĚŤOVÉ FÁZE ({srsRecords.length})
@@ -1747,7 +1725,6 @@ export default function Home() {
           )}
         </main>
 
-        {/* Bottom Tab Navigation Bar */}
         <nav
           style={{
             height: "64px",
@@ -1784,7 +1761,6 @@ export default function Home() {
           </button>
         </nav>
 
-        {/* Celebratory Daily Streak Modal */}
         {showCelebration && (
           <div
             onClick={() => setShowCelebration(false)}
@@ -1858,7 +1834,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* Reset Confirmation Modal */}
         {showResetModal && (
           <div
             onClick={() => setShowResetModal(false)}
@@ -1946,7 +1921,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* In-App Install Guide Modal */}
         {showInstallModal && (
           <div
             onClick={() => setShowInstallModal(false)}
