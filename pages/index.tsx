@@ -1399,32 +1399,6 @@ export default function Home() {
                 <h2 className="settings-group-title" id="settings-practice-title">Procvičování a haptika</h2>
                 <div className="settings-row">
                   <div className="settings-copy">
-                    <div className="settings-label">Obnovit frontu karet</div>
-                    <p className="settings-description">
-                      Smaže načtený balíček a z AI stáhne nová slovíčka. Pokrok a křivka zapomínání zůstanou zachovány.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleResetQueue}
-                    style={{
-                      padding: "8px 12px",
-                      fontSize: "0.82rem",
-                      borderRadius: "10px",
-                      background: "rgba(239, 68, 68, 0.15)",
-                      border: "1px solid rgba(239, 68, 68, 0.35)",
-                      color: "#fca5a5",
-                      fontWeight: "700",
-                      cursor: "pointer",
-                      whiteSpace: "nowrap"
-                    }}
-                  >
-                    🔄 Načíst novou frontu
-                  </button>
-                </div>
-                <h2 className="settings-group-title" id="settings-practice-title">Procvičování a haptika</h2>
-                <div className="settings-row">
-                  <div className="settings-copy">
                     <label className="settings-label" htmlFor="haptics-toggle">Haptická odezva</label>
                     <p className="settings-description">
                       {supportsVibration ? "Zavibrování při ovládání a hodnocení kartiček." : "Toto zařízení vibrace nepodporuje."}
@@ -1525,6 +1499,24 @@ export default function Home() {
                     : "Připomínka je připravená v aplikaci. Upozornění po úplném zavření vyžaduje zapnutý push server."}
                 </p>
               </section>
+
+              <div style={{ textAlign: "center", marginTop: "20px", marginBottom: "10px" }}>
+                <button
+                  type="button"
+                  onClick={handleResetQueue}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "#64748b",
+                    fontSize: "0.72rem",
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                    padding: "6px",
+                  }}
+                >
+                  🔄 Obnovit načtenou frontu karet
+                </button>
+              </div>
             </div>
           )}
 
